@@ -1,0 +1,23 @@
+import PageHeader from "@/components/page-header";
+import { Settings } from "lucide-react";
+
+export default function SettingsPage() {
+    return (
+        <div className="flex flex-1 flex-col">
+          <PageHeader title="Settings" />
+          <div className="flex flex-1 flex-col items-center justify-center text-center gap-4 p-4 md:gap-8 md:p-6">
+              <div className="max-w-sm">
+                  <div className="flex justify-center mb-6">
+                    <div className="p-4 bg-gray-400/20 rounded-full">
+                      <Settings className="size-16 text-gray-500" />
+                    </div>
+                  </div>
+                  <h2 className="text-3xl font-bold">Coming Soon!</h2>
+                  <p className="text-muted-foreground mt-2">
+                    We're working on the settings page to give you more control over your experience.
+                  </p>
+              </div>
+          </div>
+        </div>
+    );
+}

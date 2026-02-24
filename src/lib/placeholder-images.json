@@ -1,0 +1,16 @@
+{
+  "placeholderImages": [
+    {
+      "id": "relationship-insights",
+      "description": "An illustration of a path leading up a mountain with a flag on top.",
+      "imageUrl": "https://images.unsplash.com/photo-1601281426795-9fedf41df8d1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxtb3VudGFpbiUyMGxhbmRzY2FwZXxlbnwwfHx8fDE3NzA0MzMxODV8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "mountain landscape"
+    },
+    {
+      "id": "community-forum",
+      "description": "An illustration of diverse people talking.",
+      "imageUrl": "https://images.unsplash.com/photo-1573497620053-ea5300f94f21?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxwZW9wbGUlMjB0YWxraW5nfGVufDB8fHx8MTc3MDUzMjk1MXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "people talking"
+    }
+  ]
+}
