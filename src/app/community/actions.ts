@@ -28,7 +28,15 @@ export async function getCommentAction(data: { photoDescription: string; languag
         })
     });
 
-    const result = await response.json();
+    // 👇 NAYA SMART CODE YAHAN HAI 👇
+    const text = await response.text();
+
+    if (!text) {
+        throw new Error(`Vercel Error! Status Code: ${response.status}. Khali response mila.`);
+    }
+
+    const result = JSON.parse(text);
+    // 👆 NAYA SMART CODE YAHAN TAK 👆
 
     if (!response.ok) {
         throw new Error(result.error || 'API call failed');
