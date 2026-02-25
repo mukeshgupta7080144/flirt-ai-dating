@@ -7,6 +7,7 @@ import { ADMOB_CONFIG } from '@/config/admob';
 
 /**
  * A React custom hook to manage Interstitial, Banner, and Rewarded Ads with AdMob.
+ * Updated to fix the 'Loading Ad' hang by removing strict ID matching in listeners.
  */
 export const useAdMob = () => {
   const isInitialized = useRef(false);
@@ -21,7 +22,7 @@ export const useAdMob = () => {
   const [isRewardedLoaded, setIsRewardedLoaded] = useState(false);
   const [isRewardedLoading, setIsRewardedLoading] = useState(false);
 
-  // --- INTERSTITIAL ---
+  // --- INTERSTITIAL LOGIC ---
   const preloadInterstitial = useCallback(async () => {
     if (isInterstitialLoading || isInterstitialLoaded || Capacitor.getPlatform() !== 'android') return;
     console.log('AdManager: Preloading Interstitial Ad...');
@@ -37,14 +38,11 @@ export const useAdMob = () => {
 
   const showInterstitial = useCallback(async (onDismiss?: () => void) => {
     if (Capacitor.getPlatform() !== 'android') {
-        console.warn('AdManager: Ads are only supported on native platforms.');
         onDismiss?.();
         return;
     }
     if (isInterstitialLoaded) {
-      console.log('AdManager: Showing Interstitial Ad...');
       await AdMob.showInterstitial();
-      // The onAdDismissed listener will handle preloading the next one.
       if (onDismiss) {
         const listener = await AdMob.addListener(InterstitialAdPluginEvents.onAdDismissed, () => {
           onDismiss();
@@ -52,20 +50,14 @@ export const useAdMob = () => {
         });
       }
     } else {
-      console.warn('AdManager: Interstitial ad is not loaded yet. Trying to preload again.');
-      if (!isInterstitialLoading) {
-        preloadInterstitial();
-      }
-      // If ad is not ready, still call the dismiss callback to not block the UI flow
+      if (!isInterstitialLoading) preloadInterstitial();
       onDismiss?.();
     }
   }, [isInterstitialLoaded, isInterstitialLoading, preloadInterstitial]);
 
-
-  // --- BANNER ---
+  // --- BANNER LOGIC ---
   const showBanner = useCallback(async () => {
     if (Capacitor.getPlatform() !== 'android') return;
-    console.log('AdManager: Showing Banner Ad...');
     try {
         await AdMob.showBanner({
             adId: ADMOB_CONFIG.BANNER_ID,
@@ -75,23 +67,21 @@ export const useAdMob = () => {
             isTesting: true,
         });
     } catch(error) {
-        console.error('AdManager: Failed to show Banner ad.', error);
+        console.error('AdManager: Banner failed.', error);
     }
   }, []);
 
   const hideBanner = useCallback(async () => {
     if (Capacitor.getPlatform() !== 'android') return;
-    console.log('AdManager: Hiding Banner Ad...');
     try {
         await AdMob.hideBanner();
         await AdMob.removeBanner();
     } catch(error) {
-        console.error('AdManager: Failed to hide/remove Banner ad.', error);
+        console.error('AdManager: Hide banner failed.', error);
     }
   }, []);
 
-
-  // --- REWARDED VIDEO ---
+  // --- REWARDED VIDEO LOGIC ---
   const preloadRewardedAd = useCallback(async () => {
     if (isRewardedLoading || isRewardedLoaded || Capacitor.getPlatform() !== 'android') return;
     console.log('AdManager: Preloading Rewarded Ad...');
@@ -107,23 +97,19 @@ export const useAdMob = () => {
 
   const showRewardedAd = useCallback(async (onRewarded: () => void) => {
     if (Capacitor.getPlatform() !== 'android') {
-        console.warn('AdManager: Ads are only supported on web for testing. Granting reward.');
         onRewarded(); 
         return;
     }
     if (isRewardedLoaded) {
-      console.log('AdManager: Showing Rewarded Ad...');
       onRewardCallback.current = onRewarded;
       await AdMob.showRewardVideoAd();
     } else {
-      console.warn('AdManager: Rewarded ad is not loaded yet. Trying to preload again.');
-      if (!isRewardedLoading) {
-        preloadRewardedAd();
-      }
+      console.warn('AdManager: Rewarded ad not ready. Retrying preload...');
+      if (!isRewardedLoading) preloadRewardedAd();
     }
   }, [isRewardedLoaded, isRewardedLoading, preloadRewardedAd]);
 
-  // --- GLOBAL INITIALIZATION & LISTENERS ---
+  // --- GLOBAL INITIALIZATION & LISTENERS (FIXED) ---
   useEffect(() => {
     if (Capacitor.getPlatform() !== 'android' || isInitialized.current) return;
 
@@ -132,63 +118,48 @@ export const useAdMob = () => {
       isInitialized.current = true;
 
       // Interstitial Listeners
-      const interstitialLoaded = await AdMob.addListener(InterstitialAdPluginEvents.onAdLoaded, (info: AdLoadInfo) => {
-        if (info.adUnitId === ADMOB_CONFIG.INTERSTITIAL_ID) {
-            console.log('AdManager: Interstitial Ad Loaded.');
-            setIsInterstitialLoaded(true);
-            setIsInterstitialLoading(false);
-        }
+      const intLoaded = await AdMob.addListener(InterstitialAdPluginEvents.onAdLoaded, () => {
+          setIsInterstitialLoaded(true);
+          setIsInterstitialLoading(false);
       });
-      const interstitialFailed = await AdMob.addListener(InterstitialAdPluginEvents.onAdFailedToLoad, (error: any) => {
-        if(error.adUnitId === ADMOB_CONFIG.INTERSTITIAL_ID){
-            console.error('AdManager: Interstitial Ad Failed to Load.', error);
-            setIsInterstitialLoaded(false);
-            setIsInterstitialLoading(false);
-        }
+      const intFailed = await AdMob.addListener(InterstitialAdPluginEvents.onAdFailedToLoad, () => {
+          setIsInterstitialLoaded(false);
+          setIsInterstitialLoading(false);
       });
-      const interstitialDismissed = await AdMob.addListener(InterstitialAdPluginEvents.onAdDismissed, () => {
-        console.log('AdManager: Interstitial Ad Dismissed. Preloading next ad...');
-        setIsInterstitialLoaded(false);
-        preloadInterstitial();
+      const intDismissed = await AdMob.addListener(InterstitialAdPluginEvents.onAdDismissed, () => {
+          setIsInterstitialLoaded(false);
+          preloadInterstitial();
       });
 
-      // Rewarded Listeners
-      const rewardedLoaded = await AdMob.addListener(RewardAdPluginEvents.onAdLoaded, (info: AdLoadInfo) => {
-        if(info.adUnitId === ADMOB_CONFIG.REWARDED_ID) {
-            console.log('AdManager: Rewarded Ad Loaded.');
-            setIsRewardedLoaded(true);
-            setIsRewardedLoading(false);
-        }
+      // Rewarded Listeners (Properly Fixed without ID checks)
+      const rewLoaded = await AdMob.addListener(RewardAdPluginEvents.onAdLoaded, () => {
+          console.log('AdManager: Rewarded Ad Loaded Successfully!');
+          setIsRewardedLoaded(true); // ✅ Fixed: Now it will always trigger
+          setIsRewardedLoading(false);
       });
-      const rewardedFailed = await AdMob.addListener(RewardAdPluginEvents.onAdFailedToLoad, (error: any) => {
-        if(error.adUnitId === ADMOB_CONFIG.REWARDED_ID) {
-            console.error('AdManager: Rewarded Ad Failed to Load.', error);
-            setIsRewardedLoaded(false);
-            setIsRewardedLoading(false);
-        }
+      const rewFailed = await AdMob.addListener(RewardAdPluginEvents.onAdFailedToLoad, (error) => {
+          console.error('AdManager: Rewarded Failed to Load.', error);
+          setIsRewardedLoaded(false);
+          setIsRewardedLoading(false);
       });
-      const rewardedDismissed = await AdMob.addListener(RewardAdPluginEvents.onAdDismissed, () => {
-        console.log('AdManager: Rewarded Ad Dismissed. Preloading next ad...');
-        setIsRewardedLoaded(false);
-        preloadRewardedAd();
+      const rewEarned = await AdMob.addListener(RewardAdPluginEvents.onAdRewarded, (reward) => {
+          console.log('AdManager: Reward earned:', reward);
+          onRewardCallback.current();
+          onRewardCallback.current = () => {}; 
       });
-      const rewardedEarned = await AdMob.addListener(RewardAdPluginEvents.onAdRewarded, (reward) => {
-        console.log('AdManager: User earned reward!', reward);
-        onRewardCallback.current();
-        onRewardCallback.current = () => {}; // Reset callback
+      const rewDismissed = await AdMob.addListener(RewardAdPluginEvents.onAdDismissed, () => {
+          setIsRewardedLoaded(false);
+          preloadRewardedAd();
       });
-      
-      listeners.current.push(
-        interstitialLoaded, interstitialFailed, interstitialDismissed,
-        rewardedLoaded, rewardedFailed, rewardedDismissed, rewardedEarned
-      );
+
+      listeners.current.push(intLoaded, intFailed, intDismissed, rewLoaded, rewFailed, rewEarned, rewDismissed);
     };
 
     setupAdMob();
     
     return () => {
       if (Capacitor.getPlatform() === 'android') {
-        listeners.current.forEach(listener => listener.remove());
+        listeners.current.forEach(l => l.remove());
         listeners.current = [];
         hideBanner();
       }

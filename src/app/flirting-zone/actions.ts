@@ -5,24 +5,21 @@ export async function getNewLineAction(): Promise<{ line?: string; error?: strin
     const response = await fetch(`${API_URL}/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ flow: 'newLine' }),
+        body: JSON.stringify({ flow: 'newLine' }), // Backend ke 'newLine' case ko call karega
     });
 
-    // 👇 NAYA SMART CODE YAHAN HAI 👇
     const text = await response.text();
-
-    if (!text) {
-        throw new Error(`Vercel Error! Status Code: ${response.status}. Khali response mila.`);
-    }
+    if (!text) throw new Error("Vercel se khali response mila.");
 
     const result = JSON.parse(text);
-    // 👆 NAYA SMART CODE YAHAN TAK 👆
 
     if (!response.ok) {
         throw new Error(result.error || 'API call failed');
     }
 
-    return { line: result.line };
+    // Backend se humne 'line' naam ki chabi (key) bheji hai
+    return { line: result.line }; 
+
   } catch (error: any) {
     console.error("getNewLineAction Error:", error.message);
     return { error: error.message };
