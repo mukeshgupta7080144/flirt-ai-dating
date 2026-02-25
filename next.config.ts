@@ -1,7 +1,7 @@
-import type {NextConfig} from 'next';
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  output: 'export',
+  /* output: 'export' ko hata diya gaya hai taaki API routes (backend) chal sakein */
   typescript: {
     ignoreBuildErrors: true,
   },
