@@ -19,23 +19,40 @@ export const useAdMob = () => {
   const isMounted = useRef(true);
   const listeners = useRef<PluginListenerHandle[]>([]);
 
+  /* ---------------- STATE REFS ---------------- */
+
+  const interstitialState = useRef({ loaded: false, loading: false });
+  const rewardedState = useRef({ loaded: false, loading: false });
+
+  const rewardCallback = useRef<(() => void) | null>(null);
+  const isRewardShowing = useRef(false);
   const interstitialDismissQueue = useRef<(() => void)[]>([]);
-  const rewardQueue = useRef<(() => void)[]>([]);
 
   const [isInterstitialLoaded, setInterstitialLoaded] = useState(false);
   const [isInterstitialLoading, setInterstitialLoading] = useState(false);
-
   const [isRewardedLoaded, setRewardedLoaded] = useState(false);
   const [isRewardedLoading, setRewardedLoading] = useState(false);
 
-  /* ---------------- INTERSTITIAL ---------------- */
+  const syncInterstitialState = (loaded: boolean, loading: boolean) => {
+    interstitialState.current = { loaded, loading };
+    setInterstitialLoaded(loaded);
+    setInterstitialLoading(loading);
+  };
+
+  const syncRewardedState = (loaded: boolean, loading: boolean) => {
+    rewardedState.current = { loaded, loading };
+    setRewardedLoaded(loaded);
+    setRewardedLoading(loading);
+  };
+
+  /* ================= INTERSTITIAL ================= */
 
   const preloadInterstitial = useCallback(async () => {
     if (!isAndroid) return;
-    if (isInterstitialLoaded || isInterstitialLoading) return;
+    if (interstitialState.current.loaded || interstitialState.current.loading) return;
 
     try {
-      setInterstitialLoading(true);
+      syncInterstitialState(false, true);
 
       const options: AdOptions = {
         adId: ADMOB_CONFIG.INTERSTITIAL_ID,
@@ -45,9 +62,9 @@ export const useAdMob = () => {
       await AdMob.prepareInterstitial(options);
     } catch (err) {
       console.error('Interstitial preload error:', err);
-      setInterstitialLoading(false);
+      syncInterstitialState(false, false);
     }
-  }, [isAndroid, isInterstitialLoaded, isInterstitialLoading]);
+  }, [isAndroid]);
 
   const showInterstitialAd = useCallback(
     async (onDismiss?: () => void) => {
@@ -56,7 +73,7 @@ export const useAdMob = () => {
         return;
       }
 
-      if (!isInterstitialLoaded) {
+      if (!interstitialState.current.loaded) {
         await preloadInterstitial();
         onDismiss?.();
         return;
@@ -74,17 +91,17 @@ export const useAdMob = () => {
         cb?.();
       }
     },
-    [isAndroid, isInterstitialLoaded, preloadInterstitial]
+    [isAndroid, preloadInterstitial]
   );
 
-  /* ---------------- REWARDED ---------------- */
+  /* ================= REWARDED ================= */
 
   const preloadRewardedAd = useCallback(async () => {
     if (!isAndroid) return;
-    if (isRewardedLoaded || isRewardedLoading) return;
+    if (rewardedState.current.loaded || rewardedState.current.loading) return;
 
     try {
-      setRewardedLoading(true);
+      syncRewardedState(false, true);
 
       const options: AdOptions = {
         adId: ADMOB_CONFIG.REWARDED_ID,
@@ -94,9 +111,9 @@ export const useAdMob = () => {
       await AdMob.prepareRewardVideoAd(options);
     } catch (err) {
       console.error('Rewarded preload error:', err);
-      setRewardedLoading(false);
+      syncRewardedState(false, false);
     }
-  }, [isAndroid, isRewardedLoaded, isRewardedLoading]);
+  }, [isAndroid]);
 
   const showRewardedAd = useCallback(
     async (onReward: () => void) => {
@@ -105,25 +122,27 @@ export const useAdMob = () => {
         return;
       }
 
-      if (!isRewardedLoaded) {
+      if (isRewardShowing.current) return;
+
+      if (!rewardedState.current.loaded) {
         await preloadRewardedAd();
         return;
       }
 
       try {
-        rewardQueue.current = [];
-        rewardQueue.current.push(onReward);
-
+        isRewardShowing.current = true;
+        rewardCallback.current = onReward;
         await AdMob.showRewardVideoAd();
       } catch (err) {
         console.error('Rewarded show error:', err);
-        rewardQueue.current = [];
+        rewardCallback.current = null;
+        isRewardShowing.current = false;
       }
     },
-    [isAndroid, isRewardedLoaded, preloadRewardedAd]
+    [isAndroid, preloadRewardedAd]
   );
 
-  /* ---------------- BANNER (FIXED) ---------------- */
+  /* ================= BANNER ================= */
 
   const showBanner = async () => {
     if (!isAndroid) return;
@@ -152,7 +171,7 @@ export const useAdMob = () => {
     }
   };
 
-  /* ---------------- INIT ---------------- */
+  /* ================= INIT ================= */
 
   useEffect(() => {
     if (!isAndroid || isInitialized.current) return;
@@ -164,68 +183,73 @@ export const useAdMob = () => {
         await AdMob.initialize({});
         isInitialized.current = true;
 
-        listeners.current.push(
-          await AdMob.addListener(
-            InterstitialAdPluginEvents.Loaded,
-            () => {
-              if (!isMounted.current) return;
-              setInterstitialLoaded(true);
-              setInterstitialLoading(false);
-            }
-          ),
-          await AdMob.addListener(
-            InterstitialAdPluginEvents.FailedToLoad,
-            () => {
-              if (!isMounted.current) return;
-              setInterstitialLoaded(false);
-              setInterstitialLoading(false);
-            }
-          ),
-          await AdMob.addListener(
-            InterstitialAdPluginEvents.Dismissed,
-            () => {
-              if (!isMounted.current) return;
-              setInterstitialLoaded(false);
-              const cb = interstitialDismissQueue.current.shift();
-              cb?.();
-              setTimeout(() => preloadInterstitial(), 500);
-            }
-          )
-        );
+        /* ----- INTERSTITIAL EVENTS ----- */
 
         listeners.current.push(
-          await AdMob.addListener(
-            RewardAdPluginEvents.Loaded,
-            () => {
-              if (!isMounted.current) return;
-              setRewardedLoaded(true);
-              setRewardedLoading(false);
-            }
-          ),
-          await AdMob.addListener(
-            RewardAdPluginEvents.FailedToLoad,
-            () => {
-              if (!isMounted.current) return;
-              setRewardedLoaded(false);
-              setRewardedLoading(false);
-            }
-          ),
-          await AdMob.addListener(
-            RewardAdPluginEvents.Dismissed,
-            () => {
-              if (!isMounted.current) return;
-              setRewardedLoaded(false);
-              rewardQueue.current = [];
-              setTimeout(() => preloadRewardedAd(), 500);
-            }
-          ),
-          await AdMob.addListener(
-            RewardAdPluginEvents.Rewarded,
-            () => {
-              const cb = rewardQueue.current.shift();
+          await AdMob.addListener(InterstitialAdPluginEvents.Loaded, () => {
+            if (!isMounted.current) return;
+            syncInterstitialState(true, false);
+          }),
+
+          await AdMob.addListener(InterstitialAdPluginEvents.FailedToLoad, () => {
+            if (!isMounted.current) return;
+            syncInterstitialState(false, false);
+          }),
+
+          await AdMob.addListener(InterstitialAdPluginEvents.Dismissed, () => {
+            if (!isMounted.current) return;
+
+            syncInterstitialState(false, false);
+
+            const cb = interstitialDismissQueue.current.shift();
+            try {
               cb?.();
+            } catch (e) {
+              console.error('Dismiss callback error:', e);
             }
-          )
+
+            setTimeout(() => {
+              if (isMounted.current) preloadInterstitial();
+            }, 1000);
+          })
+        );
+
+        /* ----- REWARDED EVENTS ----- */
+
+        listeners.current.push(
+          await AdMob.addListener(RewardAdPluginEvents.Loaded, () => {
+            if (!isMounted.current) return;
+            syncRewardedState(true, false);
+          }),
+
+          await AdMob.addListener(RewardAdPluginEvents.FailedToLoad, () => {
+            if (!isMounted.current) return;
+            syncRewardedState(false, false);
+          }),
+
+          await AdMob.addListener(RewardAdPluginEvents.Rewarded, () => {
+            if (isRewardShowing.current && rewardCallback.current) {
+              try {
+                rewardCallback.current();
+              } catch (e) {
+                console.error('Reward callback error:', e);
+              }
+              rewardCallback.current = null;
+            }
+          }),
+
+          await AdMob.addListener(RewardAdPluginEvents.Dismissed, () => {
+            if (!isMounted.current) return;
+
+            syncRewardedState(false, false);
+
+            rewardCallback.current = null;
+            isRewardShowing.current = false;
+
+            setTimeout(() => {
+              if (isMounted.current) preloadRewardedAd();
+            }, 1000);
+          })
         );
 
         preloadInterstitial();
@@ -239,10 +263,11 @@ export const useAdMob = () => {
 
     return () => {
       isMounted.current = false;
+      isInitialized.current = false;
       listeners.current.forEach((l) => l.remove());
       listeners.current = [];
     };
-  }, []);
+  }, [isAndroid, preloadInterstitial, preloadRewardedAd]);
 
   return {
     showInterstitialAd,

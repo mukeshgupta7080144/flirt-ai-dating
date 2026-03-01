@@ -1,8 +1,7 @@
-
 'use client';
 
 import { useAdMob } from '@/hooks/useInterstitialAd';
-import React, { createContext, useContext, useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useMemo } from 'react';
 
 interface AdContextType {
   showInterstitialAd: (onDismiss?: () => void) => void;
@@ -19,28 +18,34 @@ interface AdContextType {
 
 const AdContext = createContext<AdContextType | undefined>(undefined);
 
-/**
- * Provides the ad functionality to the entire app.
- * This should wrap the main layout.
- */
 export const AdProvider = ({ children }: { children: React.ReactNode }) => {
   const adMobApi = useAdMob();
 
+  /* 🔥 Preload only once on mount */
   useEffect(() => {
-    // Preload ads when the provider mounts
     adMobApi.preloadInterstitial();
     adMobApi.preloadRewardedAd();
-  }, [adMobApi]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  return <AdContext.Provider value={adMobApi}>{children}</AdContext.Provider>;
+  /* 🔥 Memoize context value to prevent unnecessary re-renders */
+  const contextValue = useMemo(() => adMobApi, [
+    adMobApi.isInterstitialLoaded,
+    adMobApi.isInterstitialLoading,
+    adMobApi.isRewardedLoaded,
+    adMobApi.isRewardedLoading,
+  ]);
+
+  return (
+    <AdContext.Provider value={contextValue}>
+      {children}
+    </AdContext.Provider>
+  );
 };
 
-/**
- * Custom hook to easily access ad functions from any component.
- */
 export const useAds = () => {
   const context = useContext(AdContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useAds must be used within an AdProvider');
   }
   return context;
