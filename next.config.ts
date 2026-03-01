@@ -1,7 +1,8 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  /* output: 'export' ko hata diya gaya hai taaki API routes (backend) chal sakein */
+  // ✅ इसे वापस चालू कर दिया गया है! यही Android के लिए सबसे ज़रूरी है।
+  output: 'export', 
   typescript: {
     ignoreBuildErrors: true,
   },

@@ -1,62 +1,156 @@
-'use server';
-
 /**
- * @fileOverview An AI flow to generate smart comments for social media posts.
- *
- * - generateSmartComment - Generates three comment suggestions (funny, respectful, short).
- * - SmartCommentInput - The input type for the flow.
- * - SmartCommentOutput - The output type for the flow.
+ * @fileOverview AI flow to generate ultra-smart social media comments.
+ * Generates three comment suggestions:
+ * - funny
+ * - respectful
+ * - short
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import { ai } from '@/ai/genkit';
+import { z } from 'genkit';
+
+// ----------------------------------------------------
+// INPUT SCHEMA
+// ----------------------------------------------------
 
 const SmartCommentInputSchema = z.object({
-  photoDescription: z.string().describe('A description of the photo to comment on.'),
-  language: z.enum(['hi', 'en']).optional().default('hi').describe("The language for the AI response ('hi' for Hindi/Hinglish, 'en' for English)."),
+  photoDescription: z
+    .string()
+    .min(3)
+    .describe('A description of the photo to comment on.'),
+  language: z
+    .enum(['hi', 'en'])
+    .optional()
+    .default('hi')
+    .describe("Language of response ('hi' for Hindi/Hinglish, 'en' for English)."),
 });
+
 export type SmartCommentInput = z.infer<typeof SmartCommentInputSchema>;
+
+// ----------------------------------------------------
+// OUTPUT SCHEMA
+// ----------------------------------------------------
 
 const SmartCommentOutputSchema = z.object({
   funny: z.string().describe('A witty or humorous comment.'),
   respectful: z.string().describe('A kind and respectful compliment.'),
   short: z.string().describe('A short and sweet comment.'),
 });
+
 export type SmartCommentOutput = z.infer<typeof SmartCommentOutputSchema>;
 
-export async function generateSmartComment(input: SmartCommentInput): Promise<SmartCommentOutput> {
-  return commentGeneratorFlow(input);
-}
+// ----------------------------------------------------
+// SYSTEM PROMPTS
+// ----------------------------------------------------
 
-const hindiSystemPrompt = `Role: You are the ultimate 'Desi Romance & Flirting AI' for the Manifest Pro app. Your job is to generate witty, poetic, and highly situational replies and shayari in pure Hindi, Hinglish, and English.
+const hindiSystemPrompt = `
+Role: You are the elite "Desi Romance & Smart Comment AI" for Manifest Pro.
 
-Core Guidelines:
-Vibe & Style: Your responses must match the energy of top-tier Indian street-smart flirting. Mix romance, deep poetry (shayari), and witty puns. Use aesthetic emojis (✨🦋, ❤️‍🔥, 🥺🌹).
-No Repetition & Smart Vocabulary: Never use robotic AI phrases. Research unique words, create new rhymes (like "Laal me maal"), and reference modern Gen-Z context.
-Contextual Awareness: Perfectly tailor your response to the photo description.`;
+Your mission:
+Generate ultra-creative, witty, poetic, and situational comments in Hindi/Hinglish.
 
-const globalSystemPrompt = `Role: You are a charismatic, smooth-talking Western dating expert for the 'Flirt AI' app.
+🔥 STYLE DNA (REFERENCE – DO NOT COPY DIRECTLY):
 
-Core Guidelines:
-Vibe & Style: Generate highly clever, witty, and contextual comments in pure, modern English. Use Western Gen-Z slang where appropriate (e.g., 'W post', 'vibe is immaculate').
-Classy & Cheeky: Keep it classy but with a subtly cheeky and playful edge. The goal is universal appeal for an American/European audience.
-Smart & Original: Avoid cliché comments. Your replies should feel authentic, intelligent, and tailored to the photo. Use aesthetic emojis (e.g., 🔥, ✨, 👀, 🙌).`;
+Funny Example:
+"Alag hi level ka glow hai… kya filter ka naam ‘Natural Swag’ hai? 😏✨"
+
+Respectful Example:
+"Sach kahun to aaj ki tasveer mein simplicity bhi royal lag rahi hai. 🌸✨"
+
+Short Example:
+"Bas… nazar na lage 🧿✨"
+
+Core Rules:
+- Tailor comment strictly to photo description.
+- Avoid boring clichés like "nice pic".
+- Use aesthetic emojis (✨🦋🔥🌸🧿).
+- Sound human, natural, street-smart.
+- No robotic AI tone.
+- No repetition between funny/respectful/short.
+- Keep it Instagram-ready.
+`;
+
+const globalSystemPrompt = `
+Role: You are a high-level Western dating & social media expert for Flirt AI.
+
+Your mission:
+Generate clever, smooth, and highly contextual comments in modern English.
+
+🔥 STYLE DNA (REFERENCE – DO NOT COPY DIRECTLY):
+
+Funny Example:
+"Is this a photoshoot or are you just casually breaking the algorithm again? 🔥"
+
+Respectful Example:
+"The confidence in this shot is unreal. Absolute main character energy. ✨"
+
+Short Example:
+"Vibe is immaculate. 👀✨"
+
+Core Rules:
+- Be witty, original, and culturally relevant.
+- Avoid generic phrases like "so beautiful".
+- Keep it classy but slightly playful.
+- Use subtle Gen-Z tone when appropriate.
+- No repetition between outputs.
+- Make each comment feel handcrafted.
+`;
+
+// ----------------------------------------------------
+// PROMPT
+// ----------------------------------------------------
 
 const prompt = ai.definePrompt({
   name: 'commentGeneratorPrompt',
-  input: {schema: SmartCommentInputSchema},
-  output: {schema: SmartCommentOutputSchema},
-  prompt: `Your Task:
-A user wants help writing a comment on their crush's post. Based on the user's description of the photo, generate three distinct comment options.
+  input: {
+    schema: SmartCommentInputSchema.extend({
+      systemPrompt: z.string(),
+    }),
+  },
+  output: { schema: SmartCommentOutputSchema },
 
-1.  A funny comment 🤣
-2.  A respectful compliment 😇
-3.  A short and sweet comment ✨
+  prompt: `
+{{{systemPrompt}}}
 
-Photo Description: "{{{photoDescription}}}"
+Your Task:
+A user wants to comment on their crush's social media post.
 
-Return a single, valid JSON object with the three comment options under the keys "funny", "respectful", and "short".`,
+Based on the description below, generate:
+
+1. A funny comment 🤣
+2. A respectful compliment 😇
+3. A short & sweet comment ✨
+
+Photo Description:
+"{{{photoDescription}}}"
+
+Important:
+- Each comment must be different in tone.
+- Do NOT repeat words or structure.
+- Keep comments concise but impactful.
+- Return ONLY a valid JSON object.
+
+Output format:
+{
+  "funny": "...",
+  "respectful": "...",
+  "short": "..."
+}
+`,
+  config: {
+    temperature: 1.1,
+  },
 });
+
+// ----------------------------------------------------
+// FLOW
+// ----------------------------------------------------
+
+export async function generateSmartComment(
+  input: SmartCommentInput
+): Promise<SmartCommentOutput> {
+  return commentGeneratorFlow(input);
+}
 
 const commentGeneratorFlow = ai.defineFlow(
   {
@@ -64,9 +158,21 @@ const commentGeneratorFlow = ai.defineFlow(
     inputSchema: SmartCommentInputSchema,
     outputSchema: SmartCommentOutputSchema,
   },
-  async input => {
-    const systemPrompt = input.language === 'en' ? globalSystemPrompt : hindiSystemPrompt;
-    const {output} = await prompt(input, { system: systemPrompt });
-    return output!;
+  async (input) => {
+    const systemPrompt =
+      input.language === 'en'
+        ? globalSystemPrompt
+        : hindiSystemPrompt;
+
+    const { output } = await prompt({
+      ...input,
+      systemPrompt,
+    });
+
+    if (!output) {
+      throw new Error('AI failed to generate comment.');
+    }
+
+    return output;
   }
 );

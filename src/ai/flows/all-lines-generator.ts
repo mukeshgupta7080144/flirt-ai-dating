@@ -1,49 +1,59 @@
-'use server';
-
-import { ai } from '@/ai/genkit';
+import { ai } from '@/ai/genkit'; // ✅ 'I' छोटा कर दिया
 import { z } from 'genkit';
 
-const LineOutputSchema = z.object({
+// ✅ फ्रंटएंड को जिस फॉर्मेट में डाटा चाहिए (4 Categories)
+const LineItemSchema = z.object({
   line: z.string().describe('The generated romantic or flirty line.'),
+  usageTip: z.string().describe('A short tip on when to use this line (e.g., "Late night chats").'),
 });
 
-export type LineOutput = z.infer<typeof LineOutputSchema>;
+const AllLinesOutputSchema = z.object({
+  cute: z.array(LineItemSchema).describe('3 cute lines'),
+  deep: z.array(LineItemSchema).describe('3 deep poetic lines'),
+  flirty: z.array(LineItemSchema).describe('3 flirty and spicy lines'),
+  shayari: z.array(LineItemSchema).describe('3 romantic shayari lines'),
+});
+
+export type AllLinesOutput = z.infer<typeof AllLinesOutputSchema>;
 
 const prompt = ai.definePrompt({
-  name: 'lineGeneratorPrompt',
-  output: { schema: LineOutputSchema },
+  name: 'allLinesGeneratorPrompt',
+  output: { schema: AllLinesOutputSchema },
+
   system: `
-Role: You are the 'Lead Romance Architect' for the Manifest Pro app. Your goal is to generate high-impact, street-smart, and poetic flirty lines that blend Hindi and English (Hinglish) perfectly.
+Role: You are the 'Lead Romance Architect' for the Manifest Pro app.
+Your mission is to generate ultra-creative, high-impact, poetic, and street-smart flirty lines in perfect Hinglish tone.
 
-Style DNA:
-1. Rhyming Shayari: (e.g., "Laal me maal... bawal lagogi" 🌹✨)
-2. Modern Tech Puns: Using metaphors like Network, Camera, Loan/Interest, and Google Maps. (e.g., "Kya tum camera ho? Kyunki tumhe dekh kar smile aa jati hai" 📸😉)
-3. Situational Wit: Teasing about dreams, being busy, or late replies. (e.g., "Sapno ka network strong hai" 📡💤)
-4. Playful & Bold: Using cheeky questions and metaphors (e.g., "Agar main sabun hota..." or "Lift ban jati..."). Keep it spicy but creative. 🌶️🔥
+🔥 Categories Needed:
+1. Cute: Sweet, adorable, cheesy (e.g., "Kya tum camera ho? Kyunki tumhe dekh kar smile aa jati hai")
+2. Deep: Poetic, meaningful, intense (e.g., "Sapno ka network strong hai")
+3. Flirty: Bold, playful, spicy (e.g., "Laal me maal... bawal lagogi")
+4. Shayari: Rhyming, classic romantic vibe.
 
-Formatting Rules:
-- Mix Hindi script (optional) with Hinglish for a natural feel.
-- Use heavy, aesthetic emoji combinations at the end and in between words. ✨💖🦋
-- Ensure the line is easy to read with proper line breaks if needed.
-- Strictly avoid robotic or dry AI-sounding sentences.
+⚡ Writing Rules:
+- Mix Hindi + Hinglish naturally.
+- Use aesthetic emoji combos (✨💖🦋🔥🌸).
+- Sound human, not robotic.
+- Generate exactly 3 lines for EACH category.
+- Do NOT output extra text.
 `,
+
   prompt: `
-Generate ONE ultra-professional, creative, and highly engaging flirty line. 
-
-Choose from these vibes randomly or based on context:
-- Deep Poetry: "Mera aapse विनम्र निवेदन है..." 📝🙏
-- Spicy Tease: "Kya tum loan ho? Interest badh raha hai" 💸😏
-- Sweet Morning/Night: "Morning aur bhi sweet ho gayi... reply mil gaya" 🌸💖
-- Funny/Desi: "Allee, Lallee, Challee... Vashikaran Mantra" 🧿🤣
-
-The output MUST be a JSON object with the key 'line'. Make it look attractive!
+Generate a fresh batch of romantic/flirty lines for all 4 categories. Make them viral-worthy and unique!
 `,
+
   config: {
-    temperature: 1.0, // High creativity for unique lines every time
+    temperature: 1.1,
   },
 });
 
-export async function generateNewLine(): Promise<LineOutput> {
+// ✅ फंक्शन का नाम बदल कर 'generateAllNewLines' कर दिया! (लाल लाइन अब हट जाएगी)
+export async function generateAllNewLines(): Promise<AllLinesOutput> {
   const { output } = await prompt();
-  return output!;
+
+  if (!output) {
+    throw new Error('AI did not return output');
+  }
+
+  return output;
 }

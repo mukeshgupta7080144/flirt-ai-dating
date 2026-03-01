@@ -9,6 +9,8 @@ const InsightsSchema = z.object({
 type Language = 'hi' | 'en';
 
 const API_URL = 'https://flirt-ai-dating.vercel.app';
+// 🔐 बैकएंड वाला पासवर्ड यहाँ जोड़ें
+const API_SECRET = 'SUPER_SECRET_KEY'; 
 
 export async function getRelationshipAdvice(
   message: string,
@@ -29,14 +31,16 @@ export async function getRelationshipAdvice(
   try {
     const response = await fetch(`${API_URL}/api/generate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+            'Content-Type': 'application/json',
+            'x-api-key': API_SECRET // 👈 यह चाबी जोड़ना सबसे ज़रूरी है
+        },
         body: JSON.stringify({
             flow: 'relationship',
             payload: validatedFields.data
         })
     });
 
-    // 👇 NAYA SMART CODE YAHAN HAI 👇
     const text = await response.text();
 
     if (!text) {
@@ -44,13 +48,13 @@ export async function getRelationshipAdvice(
     }
 
     const result = JSON.parse(text);
-    // 👆 NAYA SMART CODE YAHAN TAK 👆
 
     if (!response.ok) {
         throw new Error(result.error || 'API call failed');
     }
 
-    return { result };
+    // ✅ बैकएंड से डेटा { result: { ... } } फॉर्मेट में आता है
+    return { result: result.result }; 
   } catch (error: any) {
     console.error("getRelationshipAdvice Error:", error.message);
     return { error: error.message };

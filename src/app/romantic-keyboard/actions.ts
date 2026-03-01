@@ -7,6 +7,8 @@ const CommentSchema = z.object({
 });
 
 const API_URL = 'https://flirt-ai-dating.vercel.app';
+// 🔐 बैकएंड वाला पासवर्ड यहाँ जोड़ें
+const API_SECRET = 'SUPER_SECRET_KEY'; 
 
 export async function getCommentAction(data: { photoDescription: string; language: 'hi' | 'en' }): Promise<{ result?: SmartCommentOutput; error?: string | object }> {
 
@@ -21,7 +23,10 @@ export async function getCommentAction(data: { photoDescription: string; languag
   try {
     const response = await fetch(`${API_URL}/api/generate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+            'Content-Type': 'application/json',
+            'x-api-key': API_SECRET // 👈 यह चाबी जोड़ना सबसे ज़रूरी है
+        },
         body: JSON.stringify({
             flow: 'comment',
             payload: validatedFields.data
@@ -42,7 +47,8 @@ export async function getCommentAction(data: { photoDescription: string; languag
         throw new Error(result.error || 'API call failed');
     }
     
-    return { result };
+    // ✅ बैकएंड से डेटा { result: { ... } } फॉर्मेट में आता है
+    return { result: result.result };
 
   } catch (error: any) {
     console.error("getCommentAction Error:", error.message);

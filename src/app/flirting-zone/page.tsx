@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -9,11 +8,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { SareeIcon } from "@/components/custom-icons";
 import Link from "next/link";
-import { getNewLineAction } from "./actions";
 import { useAds } from "@/providers/AdProvider";
 import { useLanguage } from "@/hooks/useLanguage";
 import { uiTranslations } from "@/lib/translations";
 import { flirtyLinesEn, cuteLinesEn, deepLinesEn } from "@/lib/flirting-lines";
+// 🔐 मास्टर API क्लाइंट को यहाँ इम्पोर्ट किया
+import { callAI } from "@/lib/api-client";
 
 const features = [
     { title: "Question", icon: SareeIcon, color: "bg-secondary", href: "/flirting-zone/desi-bawal" },
@@ -25,12 +25,13 @@ const features = [
 
 export default function FlirtingZonePage() {
     const { toast } = useToast();
-    const { showBanner, hideBanner, showRewardedAd } = useAds();
+    const { showBanner, hideBanner, showRewardedAd, isRewardedLoaded, showInterstitialAd } = useAds();
     const { language } = useLanguage();
     const content = useMemo(() => uiTranslations[language], [language]);
 
     const [generatedLine, setGeneratedLine] = useState<string | null>(content.newLinePrompt);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [isAdButtonClick, setIsAdButtonClick] = useState(false);
 
     useEffect(() => {
         setGeneratedLine(content.newLinePrompt);
@@ -38,42 +39,69 @@ export default function FlirtingZonePage() {
 
     useEffect(() => {
         showBanner();
-        return () => {
-            hideBanner();
-        };
+        return () => hideBanner();
     }, [showBanner, hideBanner]);
 
     const handleCopy = (text: string) => {
         navigator.clipboard.writeText(text);
         toast({
             title: content.toastCopiedTitle,
+            description: "Line copied to clipboard!"
         });
+        
+        if (showInterstitialAd) {
+            showInterstitialAd();
+        }
     };
 
     const handleGenerateLine = async () => {
+        setIsAdButtonClick(true);
+
+        if (!isRewardedLoaded) {
+            toast({
+                variant: "destructive",
+                title: "Ad Not Ready",
+                description: "Please wait a moment for the ad to load."
+            });
+            setIsAdButtonClick(false);
+            return;
+        }
+
         const getNewLine = async () => {
             setIsGenerating(true);
+            setIsAdButtonClick(false);
+
             if (language === 'hi') {
-                const { line, error } = await getNewLineAction();
-                if (line) {
-                    setGeneratedLine(line);
-                } else if (error) {
-                    toast({
-                        variant: "destructive",
-                        title: "Error",
-                        description: error,
-                    });
+                try {
+                    // ✅ पुराने fetch को हटाकर मास्टर callAI लगाया (Key अपने आप चली जाएगी)
+                    const data = await callAI("newLine");
+
+                    if (data.result && data.result.line) {
+                        setGeneratedLine(data.result.line);
+                    } else {
+                        toast({ variant: "destructive", title: "Error", description: "Failed to fetch line." });
+                        setGeneratedLine("Couldn't generate a line. Please try again.");
+                    }
+                } catch (error: any) {
+                    console.error("API Call Failed:", error);
+                    toast({ variant: "destructive", title: "Network Error", description: error.message || "Please check internet." });
                     setGeneratedLine("Couldn't generate a line. Please try again.");
                 }
             } else {
-                // For english, pick a random hardcoded line to avoid changing the backend
                 const allEnglishLines = [...flirtyLinesEn, ...cuteLinesEn, ...deepLinesEn];
                 const randomLine = allEnglishLines[Math.floor(Math.random() * allEnglishLines.length)];
                 setGeneratedLine(randomLine.line);
             }
             setIsGenerating(false);
         }
-        showRewardedAd(getNewLine);
+
+        if (showRewardedAd) {
+            showRewardedAd(getNewLine);
+        } else {
+            await getNewLine();
+        }
+
+        setTimeout(() => setIsAdButtonClick(false), 3000);
     };
 
     return (
@@ -89,18 +117,18 @@ export default function FlirtingZonePage() {
                         <div className="flex items-center justify-between">
                             <Button
                                 onClick={handleGenerateLine}
-                                disabled={isGenerating}
+                                disabled={isGenerating || isAdButtonClick}
                                 size="sm"
                                 className="bg-primary text-white font-bold shadow-lg hover:scale-105 transition-transform"
                             >
-                                {isGenerating ? (
+                                {isGenerating || isAdButtonClick ? (
                                     <Loader className="mr-2 animate-spin" />
                                 ) : (
                                     <RefreshCw className="mr-2" />
                                 )}
-                                {content.newLineBtn}
+                                {isGenerating || isAdButtonClick ? "Loading..." : content.newLineBtn}
                             </Button>
-                            {generatedLine && !isGenerating && !generatedLine.startsWith("Click") && !generatedLine.startsWith("Couldn't") && (
+                            {generatedLine && !isGenerating && !generatedLine.includes(content.newLinePrompt) && !generatedLine.startsWith("Couldn't") && (
                                 <Button variant="ghost" size="sm" onClick={() => handleCopy(generatedLine)}>
                                     <Copy className="mr-2" />
                                     {content.copyLineBtn}

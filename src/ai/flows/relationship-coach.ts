@@ -1,5 +1,3 @@
-'use server';
-
 /**
  * @fileOverview This file defines a Genkit flow for providing personalized relationship coaching.
  *
@@ -50,10 +48,17 @@ Vibe & Style: Your tone must be supportive, understanding, and non-judgmental. P
 Damage Control Mode: If the user's problem involves conflict, anger, or being ignored, your primary goal is to provide steps to de-escalate, foster communication, and find a resolution.
 Smart Vocabulary: Use simple, relatable language. Avoid clinical jargon.`;
 
-const prompt = ai.definePrompt({
+// ✅ FIX: प्रॉम्प्ट के इनपुट में 'systemInstructions' जोड़ दिया और उसे 'system' में पास कर दिया
+const relationshipCoachPrompt = ai.definePrompt({
   name: 'relationshipCoachPrompt',
-  input: {schema: RelationshipCoachInputSchema},
+  input: {
+    schema: z.object({
+      relationshipDescription: z.string(),
+      systemInstructions: z.string() // यह नया इनपुट है
+    })
+  },
   output: {schema: RelationshipCoachOutputSchema},
+  system: `{{{systemInstructions}}}`, // यहाँ डायनामिक सिस्टम प्रॉम्प्ट आएगा
   prompt: `Your Task:
 Analyze the user's problem: "{{{relationshipDescription}}}"
 
@@ -75,8 +80,14 @@ const relationshipCoachFlow = ai.defineFlow(
     outputSchema: RelationshipCoachOutputSchema,
   },
   async input => {
-    const systemPrompt = input.language === 'en' ? globalSystemPrompt : hindiSystemPrompt;
-    const {output} = await relationshipCoachPrompt(input, { system: systemPrompt });
+    // ✅ FIX: यहाँ हम डायनामिक प्रॉम्प्ट चुनकर उसे इनपुट के रूप में पास कर रहे हैं (लाल लाइन हट जाएगी)
+    const systemPromptText = input.language === 'en' ? globalSystemPrompt : hindiSystemPrompt;
+    
+    const {output} = await relationshipCoachPrompt({ 
+      relationshipDescription: input.relationshipDescription,
+      systemInstructions: systemPromptText
+    });
+    
     return output!;
   }
 );

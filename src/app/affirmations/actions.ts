@@ -1,4 +1,6 @@
 const API_URL = 'https://flirt-ai-dating.vercel.app';
+// 🔐 चाबी (Password) यहाँ डिफाइन करें
+const API_SECRET = 'SUPER_SECRET_KEY'; 
 
 /**
  * Helper function to handle API calls with error checking
@@ -6,7 +8,10 @@ const API_URL = 'https://flirt-ai-dating.vercel.app';
 async function fetchFromApi(flow: string, payload?: any) {
     const response = await fetch(`${API_URL}/api/generate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+            'Content-Type': 'application/json',
+            'x-api-key': API_SECRET // 👈 यह लाइन जोड़ना सबसे ज़रूरी था
+        },
         body: JSON.stringify({ flow, payload }),
     });
 
@@ -33,7 +38,7 @@ export async function refreshAllLinesAction() {
     try {
         // This triggers the full generation of 25+ lines for all categories
         const data = await fetchFromApi('allNewLines');
-        return { data };
+        return { data: data.result }; // ✅ data.result रिटर्न करना बेहतर है
     } catch (error: any) {
         console.error("refreshAllLinesAction Error:", error.message);
         return { error: error.message };

@@ -1,5 +1,3 @@
-'use server';
-
 /**
  * @fileOverview An AI flow to generate replies for a user's conversation.
  *
@@ -47,10 +45,18 @@ Damage Control: If the user's crush seems angry or is giving short replies (e.g.
 Smart & Original: Avoid cliché pickup lines. Your replies should feel authentic, intelligent, and tailored to the situation. Use aesthetic emojis (e.g., 😏, 😉, ✨, 👀).`;
 
 
-const prompt = ai.definePrompt({
+// ✅ FIX: प्रॉम्प्ट के इनपुट में 'systemInstructions' जोड़ दिया और उसे 'system' में पास कर दिया
+const replyGeneratorPrompt = ai.definePrompt({
   name: 'replyGeneratorPrompt',
-  input: {schema: GenerateReplyInputSchema},
+  input: {
+    schema: z.object({
+      lastMessage: z.string(),
+      conversationContext: z.string().optional(),
+      systemInstructions: z.string() // यह नया इनपुट है
+    })
+  },
   output: {schema: GenerateReplyOutputSchema},
+  system: `{{{systemInstructions}}}`, // यहाँ डायनामिक सिस्टम प्रॉम्प्ट आएगा
   prompt: `Your Task: A user needs help replying to a message from their crush. Analyze the last message they received. Based on your core guidelines, generate three distinct reply options: one funny, one caring, and one flirty.
 
 If the crush's message seems angry, upset, or is a short, dismissive reply like "Hmm", your "caring" option MUST follow your 'Damage Control Mode' guideline and be an empathetic, de-escalating, or heart-melting reply.
@@ -70,9 +76,15 @@ const replyGeneratorFlow = ai.defineFlow(
     outputSchema: GenerateReplyOutputSchema,
   },
   async (input) => {
-    const systemPrompt = input.language === 'en' ? globalSystemPrompt : hindiSystemPrompt;
+    // ✅ FIX: यहाँ हम डायनामिक प्रॉम्प्ट चुनकर उसे इनपुट के रूप में पास कर रहे हैं (लाल लाइन हट जाएगी)
+    const systemPromptText = input.language === 'en' ? globalSystemPrompt : hindiSystemPrompt;
     
-    const {output} = await prompt(input, { system: systemPrompt });
+    const {output} = await replyGeneratorPrompt({
+      lastMessage: input.lastMessage,
+      conversationContext: input.conversationContext,
+      systemInstructions: systemPromptText
+    });
+    
     return output!;
   }
 );

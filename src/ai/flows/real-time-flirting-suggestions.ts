@@ -1,4 +1,4 @@
-'use server';
+'';
 
 /**
  * @fileOverview A flow that generates real-time flirting suggestions for shy users.

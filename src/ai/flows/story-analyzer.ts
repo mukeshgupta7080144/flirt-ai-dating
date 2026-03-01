@@ -1,4 +1,4 @@
-'use server';
+'';
 
 /**
  * @fileOverview An AI flow to analyze a social media story and suggest a reply.
