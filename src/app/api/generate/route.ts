@@ -4,7 +4,6 @@ import { generateReply } from '@/ai/flows/reply-generator';
 import { analyzeStory } from '@/ai/flows/story-analyzer';
 import { getRelationshipCoachAdvice } from '@/ai/flows/relationship-coach';
 import { generateNewLine } from '@/ai/flows/line-generator';
-// ⚠️ ध्यान दें: यह इम्पोर्ट तभी काम करेगा जब आप Step 2 फॉलो करेंगे
 import { generateAllNewLines } from '@/ai/flows/all-lines-generator';
 
 /* ================================================= */
@@ -12,12 +11,12 @@ import { generateAllNewLines } from '@/ai/flows/all-lines-generator';
 /* ================================================= */
 
 const RATE_LIMIT_WINDOW = 60 * 1000;
-const MAX_REQUESTS_PER_IP = 40;
+const MAX_REQUESTS_PER_IP = 20; 
 const MAX_BODY_SIZE = 15_000;
 const MAX_CONCURRENT_REQUESTS = 15;
 const CACHE_DURATION = 60 * 1000;
 
-/* 🔐 SECRET KEY (Put same key in frontend request header) */
+/* 🔐 SECRET KEY */
 const API_SECRET = process.env.API_SECRET_KEY || 'SUPER_SECRET_KEY';
 
 const allowedFlows = new Set([
@@ -41,10 +40,22 @@ const activeRequests = new Map<string, number>();
 /* UTILITIES                       */
 /* ================================================= */
 
+function getCorsHeaders(request: Request) {
+  const origin = request.headers.get('origin') || '';
+  const isAllowedOrigin = origin.includes('localhost') || origin === 'https://flirt-ai-app.vercel.app';
+  
+  return {
+    'Access-Control-Allow-Origin': isAllowedOrigin && origin ? origin : 'https://flirt-ai-app.vercel.app',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, x-api-key',
+  };
+}
+
+// ✅ FIX 2: Unknown IP को "global" बना दिया ताकि रेट लिमिट न टूटे
 function getClientIP(request: Request): string {
   const forwarded = request.headers.get('x-forwarded-for');
   if (forwarded) return forwarded.split(',')[0].trim();
-  return request.headers.get('x-real-ip') || 'unknown';
+  return request.headers.get('x-real-ip') || 'global'; 
 }
 
 function rateLimit(ip: string): boolean {
@@ -69,6 +80,7 @@ function rateLimit(ip: string): boolean {
   return false;
 }
 
+// ✅ FIX 1: Cache और IP Store की Memory Leak रोकी गई
 function cleanExpiredCache() {
   const now = Date.now();
   for (const [key, value] of cacheStore.entries()) {
@@ -76,9 +88,19 @@ function cleanExpiredCache() {
       cacheStore.delete(key);
     }
   }
+  
+  // Memory Leak Prevention (Cache)
+  if (cacheStore.size > 500) {
+    cacheStore.clear();
+  }
+
+  // Memory Leak Prevention (IP Store)
+  if (ipStore.size > 5000) {
+    ipStore.clear();
+  }
 }
 
-function handleFlowError(error: unknown) {
+function handleFlowError(error: unknown, corsHeaders: any) {
   let errorMessage = "Something went wrong.";
   let statusCode = 500;
 
@@ -98,7 +120,18 @@ function handleFlowError(error: unknown) {
   }
 
   console.error("AI Flow Error:", error);
-  return NextResponse.json({ error: errorMessage }, { status: statusCode });
+  return NextResponse.json({ error: errorMessage }, { status: statusCode, headers: corsHeaders });
+}
+
+/* ================================================= */
+/* OPTIONS HANDLER (CORS Preflight)                  */
+/* ================================================= */
+export async function OPTIONS(request: Request) {
+  const corsHeaders = getCorsHeaders(request);
+  return new NextResponse(null, {
+    status: 200,
+    headers: corsHeaders,
+  });
 }
 
 /* ================================================= */
@@ -106,6 +139,7 @@ function handleFlowError(error: unknown) {
 /* ================================================= */
 
 export async function POST(request: Request) {
+  const corsHeaders = getCorsHeaders(request);
   const ip = getClientIP(request);
 
   /* 🔐 SECRET KEY CHECK */
@@ -113,15 +147,15 @@ export async function POST(request: Request) {
   if (clientSecret !== API_SECRET) {
     return NextResponse.json(
       { error: 'Unauthorized request.' },
-      { status: 401 }
+      { status: 401, headers: corsHeaders }
     );
   }
 
   /* 1️⃣ Rate Limit */
   if (rateLimit(ip)) {
     return NextResponse.json(
-      { error: "Too many requests." },
-      { status: 429 }
+      { error: "Too many requests. Please slow down." },
+      { status: 429, headers: corsHeaders }
     );
   }
 
@@ -131,7 +165,7 @@ export async function POST(request: Request) {
   if (currentActive >= MAX_CONCURRENT_REQUESTS) {
     return NextResponse.json(
       { error: "Too many parallel requests." },
-      { status: 429 }
+      { status: 429, headers: corsHeaders }
     );
   }
 
@@ -146,7 +180,7 @@ export async function POST(request: Request) {
     if (rawBody.length > MAX_BODY_SIZE) {
       return NextResponse.json(
         { error: "Request too large." },
-        { status: 413 }
+        { status: 413, headers: corsHeaders }
       );
     }
 
@@ -157,7 +191,7 @@ export async function POST(request: Request) {
     } catch {
       return NextResponse.json(
         { error: "Invalid JSON format." },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -166,7 +200,7 @@ export async function POST(request: Request) {
     if (!flow || !allowedFlows.has(flow)) {
       return NextResponse.json(
         { error: "Invalid flow type." },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -175,7 +209,7 @@ export async function POST(request: Request) {
     const cached = cacheStore.get(cacheKey);
 
     if (cached && cached.expiry > Date.now()) {
-      return NextResponse.json({ result: cached.data });
+      return NextResponse.json({ result: cached.data }, { headers: corsHeaders });
     }
 
     let result: unknown;
@@ -186,7 +220,7 @@ export async function POST(request: Request) {
         if (!payload?.photoDescription) {
           return NextResponse.json(
             { error: "Missing photo description." },
-            { status: 400 }
+            { status: 400, headers: corsHeaders }
           );
         }
         result = await generateSmartComment(payload);
@@ -215,7 +249,7 @@ export async function POST(request: Request) {
         if (currentCount > 10) {
           return NextResponse.json(
             { error: "Heavy request limit reached." },
-            { status: 429 }
+            { status: 429, headers: corsHeaders }
           );
         }
 
@@ -226,7 +260,7 @@ export async function POST(request: Request) {
       default:
         return NextResponse.json(
           { error: "Unsupported flow." },
-          { status: 400 }
+          { status: 400, headers: corsHeaders }
         );
     }
 
@@ -236,10 +270,10 @@ export async function POST(request: Request) {
       expiry: Date.now() + CACHE_DURATION
     });
 
-    return NextResponse.json({ result });
+    return NextResponse.json({ result }, { headers: corsHeaders });
 
   } catch (error) {
-    return handleFlowError(error);
+    return handleFlowError(error, corsHeaders);
   } finally {
     /* 🔥 Always Release Concurrency */
     const current = activeRequests.get(ip) ?? 1;

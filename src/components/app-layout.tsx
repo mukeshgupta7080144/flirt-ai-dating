@@ -1,17 +1,14 @@
-
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+// फालतू आइकॉन (Crown, StickyNote, Lock) हटा दिए गए हैं 
 import {
   BookText,
-  Crown,
   LayoutDashboard,
   Smile,
   Heart,
   Stethoscope,
-  StickyNote,
-  Lock,
   HeartPulse,
   BrainCircuit,
   MessageSquare,
@@ -31,10 +28,10 @@ import {
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { Button } from "./ui/button";
 import { Logo } from "./icons";
 import { Separator } from "./ui/separator";
 
+// 2. Sticker Store और 3. The Vault यहाँ से डिलीट कर दिए हैं
 const navItems = [
   {
     href: "/",
@@ -55,11 +52,6 @@ const navItems = [
     href: "/destiny-card",
     label: "Chat Guide",
     icon: BookText,
-  },
-  {
-    href: "/sticker-store",
-    label: "Sticker Store",
-    icon: StickyNote,
   },
   {
     href: "/romantic-keyboard",
@@ -85,11 +77,6 @@ const navItems = [
     href: "/ascii-art",
     label: "ASCII Art",
     icon: Text,
-  },
-  {
-    href: "/vault",
-    label: "The Vault",
-    icon: Lock,
   },
 ];
 
@@ -118,7 +105,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                   }}
                 >
                   <Link href={item.href}>
-                    <item.icon className={cn(item.label === 'The Vault' && 'text-yellow-500')} />
+                    <item.icon />
                     <span>{item.label}</span>
                   </Link>
                 </SidebarMenuButton>
@@ -126,12 +113,9 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
             ))}
           </SidebarMenu>
         </SidebarContent>
+        {/* 4. Go Premium बटन यहाँ से डिलीट कर दिया है */}
         <SidebarFooter className="p-4">
            <Separator className="mb-4" />
-           <Button variant="outline">
-              <Crown className="mr-2 text-yellow-500" />
-              Go Premium
-            </Button>
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>

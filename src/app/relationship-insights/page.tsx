@@ -8,13 +8,12 @@ import { Separator } from "@/components/ui/separator";
 import PageHeader from "@/components/page-header";
 
 import type { RelationshipCoachOutput } from "@/ai/flows/relationship-coach";
-import { BrainCircuit, ListX, StepForward, Send, Loader, User, Bot, Video, Gift, Award } from "lucide-react";
+import { BrainCircuit, ListX, StepForward, Send, Loader, User, Bot, Gift, Award } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useAds } from "@/providers/AdProvider";
 import { useLanguage } from "@/hooks/useLanguage";
 import { uiTranslations } from "@/lib/translations";
-// 🔐 मास्टर API क्लाइंट को यहाँ इम्पोर्ट किया
 import { callAI } from "@/lib/api-client";
 
 type Message = {
@@ -22,28 +21,6 @@ type Message = {
   role: "user" | "ai";
   content: string | RelationshipCoachOutput;
 };
-
-const AdScreen = ({ onWatchAd, isButtonLoading, messagesLeft, ctaTitle, ctaDesc, ctaBtn }: any) => (
-    <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center p-8 text-center text-white">
-        <div className="bg-gradient-to-br from-primary to-purple-600 p-8 rounded-3xl shadow-2xl max-w-sm">
-            <Gift className="size-16 mx-auto mb-4 text-yellow-300" />
-            <h2 className="text-3xl font-bold mb-2">{ctaTitle}</h2>
-            <p className="mb-6 opacity-90">
-                {messagesLeft <= 0 ? "You've run out of free messages." : ctaDesc}
-                <br />
-                Watch an ad to get <strong>10 more free messages</strong>.
-            </p>
-            <Button
-                onClick={onWatchAd}
-                disabled={isButtonLoading}
-                className="w-full h-14 bg-yellow-400 text-black font-bold text-lg hover:bg-yellow-500 transition-transform hover:scale-105"
-            >
-                {isButtonLoading ? <Loader className="animate-spin mr-2" /> : <Video className="mr-2" />}
-                {isButtonLoading ? "Loading..." : ctaBtn}
-            </Button>
-        </div>
-    </div>
-);
 
 const AIMessage = ({ data, language }: { data: RelationshipCoachOutput, language: 'hi' | 'en' }) => (
     <div className="space-y-4 text-foreground/90">
@@ -95,34 +72,40 @@ export default function RelationshipChatPage() {
   const { language } = useLanguage();
   const content = useMemo(() => uiTranslations[language], [language]);
 
-  const [messageCredit, setMessageCredit] = useState(5);
-  const [showAdScreen, setShowAdScreen] = useState(false);
+  // ✅ FIX: शुरुआत में 0 क्रेडिट कर दिए हैं ताकि बिना ऐड देखे कोई चैट न कर सके
+  const [messageCredit, setMessageCredit] = useState(0); 
   const [isClickLoading, setIsClickLoading] = useState(false);
+  
   const { toast } = useToast();
   const { showRewardedAd, isRewardedLoaded } = useAds();
-
-  useEffect(() => {
-    if (messageCredit <= 0) setShowAdScreen(true);
-    else setShowAdScreen(false);
-  }, [messageCredit]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
+  // 🎁 ADD: ऐड देखने पर 5 मैसेज देने वाला लॉजिक
   const handleWatchAd = () => {
     setIsClickLoading(true);
+    
     if (!isRewardedLoaded) {
-        toast({ title: "Ad Not Ready", description: "Google is preparing ads... try in 5 seconds." });
+        toast({ 
+            variant: "destructive", 
+            title: "Ad Not Ready", 
+            description: "Ad load ho raha hai... thoda wait karein." 
+        });
         setIsClickLoading(false);
         return; 
     }
+
     showRewardedAd(() => {
-        setMessageCredit(10);
-        setShowAdScreen(false);
+        setMessageCredit(5); // ✅ 5 नए चैट क्रेडिट्स दे दिए
         setIsClickLoading(false);
-        toast({ title: "Reward Granted!", description: "10 free messages added." });
+        toast({ 
+            title: "Unlocked! 🎉", 
+            description: "Aapko 5 free messages mil gaye hain. Chat shuru karein!" 
+        });
     });
+
     setTimeout(() => setIsClickLoading(false), 5000);
   };
 
@@ -130,20 +113,17 @@ export default function RelationshipChatPage() {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
-    if (messageCredit <= 0) {
-        setShowAdScreen(true);
-        return;
-    }
+    // सेफ्टी चेक: अगर क्रेडिट नहीं है तो वापस भेज दो
+    if (messageCredit <= 0) return;
 
     const userMessage: Message = { id: Date.now(), role: "user", content: input };
     setMessages((prev) => [...prev, userMessage]);
-    setMessageCredit(prev => prev - 1);
+    setMessageCredit(prev => prev - 1); // 1 क्रेडिट काट लिया
     setIsLoading(true);
     const currentInput = input;
     setInput("");
 
     try {
-        // ✅ पुराने fetch को हटाकर मास्टर callAI लगाया (Key अपने आप चली जाएगी)
         const data = await callAI("relationship", { 
             relationshipDescription: currentInput, 
             language: language 
@@ -157,7 +137,7 @@ export default function RelationshipChatPage() {
     } catch (err: any) {
         toast({ variant: "destructive", title: "Error", description: err.message || "Network Error" });
         setMessages((prev) => prev.filter(m => m.id !== userMessage.id));
-        setMessageCredit(prev => prev + 1);
+        setMessageCredit(prev => prev + 1); // फेल होने पर क्रेडिट वापस कर दिया
     } finally {
         setIsLoading(false);
     }
@@ -165,17 +145,19 @@ export default function RelationshipChatPage() {
 
   return (
     <div className="flex flex-1 flex-col h-full bg-background relative">
-      {showAdScreen && <AdScreen onWatchAd={handleWatchAd} isButtonLoading={isClickLoading} messagesLeft={messageCredit} ctaTitle={content.insightsCtaWatchAd} ctaDesc={content.insightsCtaDesc} ctaBtn={content.insightsCtaBtn} />}
-
       <PageHeader title={content.insightsPageTitle} />
+      
       <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
-        {messages.length === 0 && !showAdScreen && (
+        {messages.length === 0 && (
             <div className="text-center pt-16">
                 <BrainCircuit className="mx-auto size-16 text-primary opacity-50"/>
                 <h2 className="mt-4 text-2xl font-bold">{content.insightsWelcomeTitle}</h2>
-                <p className="mt-2 text-muted-foreground whitespace-pre-line text-sm">{content.insightsWelcomeDesc}</p>
+                <p className="mt-2 text-muted-foreground whitespace-pre-line text-sm">
+                    {content.insightsWelcomeDesc}
+                </p>
             </div>
         )}
+
         {messages.map((message) => (
           <div key={message.id} className={cn("flex items-start gap-3", { "justify-end": message.role === "user" })}>
             {message.role === "ai" && <Avatar className="size-8 border shadow-sm"><AvatarFallback className="bg-gray-800 text-white"><Bot className="size-5"/></AvatarFallback></Avatar>}
@@ -189,20 +171,44 @@ export default function RelationshipChatPage() {
         <div ref={messagesEndRef} />
       </div>
 
+      {/* 🛑 BOTTOM INPUT AREA LOGIC 🛑 */}
       <div className="border-t p-4 bg-background/95 backdrop-blur-md sticky bottom-0">
-        <form onSubmit={handleSubmit} className="flex items-center gap-2 max-w-4xl mx-auto">
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={messageCredit > 0 ? content.insightsInputPlaceholder : "Watch ad for more..."}
-            disabled={isLoading || messageCredit <= 0}
-            className="flex-1 rounded-xl h-12"
-          />
-          <Button type="submit" disabled={isLoading || !input.trim() || messageCredit <= 0} size="icon" className="h-12 w-12 rounded-xl">
-            <Send className="size-5" />
-          </Button>
-        </form>
-        {messageCredit > 0 && <div className="text-[10px] text-center text-muted-foreground pt-2 flex items-center justify-center gap-1 uppercase tracking-widest"><Award className="size-3 text-green-500" /> {messageCredit} MESSAGES LEFT</div>}
+        <div className="max-w-4xl mx-auto">
+            
+            {/* अगर क्रेडिट 0 है, तो इनपुट की जगह 'Unlock' बटन दिखाओ */}
+            {messageCredit <= 0 ? (
+                <Button
+                    onClick={handleWatchAd}
+                    disabled={isClickLoading}
+                    className="w-full h-14 bg-gradient-to-r from-yellow-400 to-yellow-500 text-black font-extrabold text-lg hover:scale-[1.02] active:scale-95 transition-all shadow-lg rounded-2xl"
+                >
+                    {isClickLoading ? <Loader className="animate-spin mr-2" /> : <Gift className="mr-2 size-6" />}
+                    {isClickLoading ? "Loading Ad..." : "Watch Ad to Unlock 5 Chats 🎁"}
+                </Button>
+            ) : (
+                /* अगर क्रेडिट है, तो नॉर्मल चैट बॉक्स दिखाओ */
+                <form onSubmit={handleSubmit} className="flex items-center gap-2">
+                    <Input
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        placeholder={content.insightsInputPlaceholder}
+                        disabled={isLoading}
+                        className="flex-1 rounded-xl h-12"
+                    />
+                    <Button type="submit" disabled={isLoading || !input.trim()} size="icon" className="h-12 w-12 rounded-xl">
+                        <Send className="size-5" />
+                    </Button>
+                </form>
+            )}
+
+            {/* बचे हुए मैसेज का काउंटर */}
+            {messageCredit > 0 && (
+                <div className="text-[10px] font-bold text-center text-muted-foreground pt-3 flex items-center justify-center gap-1 uppercase tracking-widest">
+                    <Award className="size-3 text-green-500" /> 
+                    {messageCredit} MESSAGES LEFT
+                </div>
+            )}
+        </div>
       </div>
     </div>
   );
