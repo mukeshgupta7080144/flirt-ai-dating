@@ -40,18 +40,17 @@ const activeRequests = new Map<string, number>();
 /* UTILITIES                       */
 /* ================================================= */
 
+// 🛡️ FIX: CORS को पूरी तरह खोल दिया है ताकि Android WebView/Capacitor ब्लॉक न हो। 
+// हमारी असली सिक्योरिटी API KEY (x-api-key) और Rate Limiting है!
 function getCorsHeaders(request: Request) {
-  const origin = request.headers.get('origin') || '';
-  const isAllowedOrigin = origin.includes('localhost') || origin === 'https://flirt-ai-app.vercel.app';
-  
   return {
-    'Access-Control-Allow-Origin': isAllowedOrigin && origin ? origin : 'https://flirt-ai-app.vercel.app',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'OPTIONS, POST, GET',
     'Access-Control-Allow-Headers': 'Content-Type, x-api-key',
   };
 }
 
-// ✅ FIX 2: Unknown IP को "global" बना दिया ताकि रेट लिमिट न टूटे
+// ✅ Unknown IP को "global" बना दिया ताकि रेट लिमिट न टूटे
 function getClientIP(request: Request): string {
   const forwarded = request.headers.get('x-forwarded-for');
   if (forwarded) return forwarded.split(',')[0].trim();
@@ -80,7 +79,7 @@ function rateLimit(ip: string): boolean {
   return false;
 }
 
-// ✅ FIX 1: Cache और IP Store की Memory Leak रोकी गई
+// ✅ Cache और IP Store की Memory Leak रोकी गई
 function cleanExpiredCache() {
   const now = Date.now();
   for (const [key, value] of cacheStore.entries()) {
