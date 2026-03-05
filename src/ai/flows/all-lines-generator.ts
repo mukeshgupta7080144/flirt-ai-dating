@@ -1,59 +1,59 @@
-import { ai } from '@/ai/genkit'; // ✅ 'I' छोटा कर दिया
-import { z } from 'genkit';
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// ✅ फ्रंटएंड को जिस फॉर्मेट में डाटा चाहिए (4 Categories)
-const LineItemSchema = z.object({
-  line: z.string().describe('The generated romantic or flirty line.'),
-  usageTip: z.string().describe('A short tip on when to use this line (e.g., "Late night chats").'),
-});
+// 🔐 Google Gemini API Key
+const apiKey = process.env.GEMINI_API_KEY;
+if (!apiKey) {
+  throw new Error("GEMINI_API_KEY is missing in environment variables.");
+}
 
-const AllLinesOutputSchema = z.object({
-  cute: z.array(LineItemSchema).describe('3 cute lines'),
-  deep: z.array(LineItemSchema).describe('3 deep poetic lines'),
-  flirty: z.array(LineItemSchema).describe('3 flirty and spicy lines'),
-  shayari: z.array(LineItemSchema).describe('3 romantic shayari lines'),
-});
+const genAI = new GoogleGenerativeAI(apiKey);
 
-export type AllLinesOutput = z.infer<typeof AllLinesOutputSchema>;
+export async function generateAllNewLines() {
+  // 🧠 Gemini 1.5 Flash - तेज़ और स्मार्ट मॉडल
+  const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
+      // 🔥 FIX: AI को सख्त आदेश कि सिर्फ JSON ही भेजना, फालतू बातें नहीं!
+      generationConfig: { responseMimeType: "application/json" }
+  });
 
-const prompt = ai.definePrompt({
-  name: 'allLinesGeneratorPrompt',
-  output: { schema: AllLinesOutputSchema },
+  // 👑 The Master Prompt (AI को हमारा हुक्म)
+  const prompt = `
+  You are an expert Indian dating coach and a Gen-Z relationship guru. 
+  Your task is to generate fresh, unique, and highly engaging Hinglish (Hindi + English) flirting lines for 5 different categories.
 
-  system: `
-Role: You are the 'Lead Romance Architect' for the Manifest Pro app.
-Your mission is to generate ultra-creative, high-impact, poetic, and street-smart flirty lines in perfect Hinglish tone.
+  Generate EXACTLY 5 highly impressive items for EACH category.
+  The language must be natural, trendy, and emotional, using emojis where appropriate.
 
-🔥 Categories Needed:
-1. Cute: Sweet, adorable, cheesy (e.g., "Kya tum camera ho? Kyunki tumhe dekh kar smile aa jati hai")
-2. Deep: Poetic, meaningful, intense (e.g., "Sapno ka network strong hai")
-3. Flirty: Bold, playful, spicy (e.g., "Laal me maal... bawal lagogi")
-4. Shayari: Rhyming, classic romantic vibe.
-
-⚡ Writing Rules:
-- Mix Hindi + Hinglish naturally.
-- Use aesthetic emoji combos (✨💖🦋🔥🌸).
-- Sound human, not robotic.
-- Generate exactly 3 lines for EACH category.
-- Do NOT output extra text.
-`,
-
-  prompt: `
-Generate a fresh batch of romantic/flirty lines for all 4 categories. Make them viral-worthy and unique!
-`,
-
-  config: {
-    temperature: 1.1,
-  },
-});
-
-// ✅ फंक्शन का नाम बदल कर 'generateAllNewLines' कर दिया! (लाल लाइन अब हट जाएगी)
-export async function generateAllNewLines(): Promise<AllLinesOutput> {
-  const { output } = await prompt();
-
-  if (!output) {
-    throw new Error('AI did not return output');
+  Return ONLY a valid JSON object with this EXACT structure (No markdown, no extra text):
+  {
+    "questions": [ 
+      { "line": "Deep or bold Hinglish question to ask a crush.", "usageTip": "Kab use karein (e.g., Night chat me)" } 
+    ],
+    "funnyFlirts": [ 
+      { "line": "Hilarious and witty Hinglish pickup line.", "usageTip": "Hasane ke liye" } 
+    ],
+    "anokhiNight": [ 
+      { "line": "Late night deep, romantic, or slight naughty (but safe) line.", "usageTip": "Raat ko 12 baje ke baad" } 
+    ],
+    "damageControl": [ 
+      { "line": "Sweet apology or making-up line after a fight.", "usageTip": "Gussa shant karne ke liye" } 
+    ],
+    "vibeCheck": [ 
+      { "line": "Playful teasing or casual vibe check line.", "usageTip": "Conversation start karne ke liye" } 
+    ]
   }
+  `;
 
-  return output;
+  try {
+    const result = await model.generateContent(prompt);
+    const responseText = result.response.text();
+    
+    // AI के भेजे हुए JSON को ऐप के समझने लायक डेटा में बदलना
+    const parsedData = JSON.parse(responseText);
+    return parsedData;
+
+  } catch (error) {
+    console.error("Master Generator Error:", error);
+    throw new Error("Failed to generate all categories bundle.");
+  }
 }

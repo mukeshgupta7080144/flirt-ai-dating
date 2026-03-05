@@ -12,7 +12,7 @@ import { useAds } from "@/providers/AdProvider";
 import { useLanguage } from "@/hooks/useLanguage";
 import { uiTranslations } from "@/lib/translations";
 import { flirtyLinesEn, cuteLinesEn, deepLinesEn } from "@/lib/flirting-lines";
-// 🔐 मास्टर API क्लाइंट को यहाँ इम्पोर्ट किया
+// 🔐 मास्टर API क्लाइंट
 import { callAI } from "@/lib/api-client";
 
 const features = [
@@ -57,6 +57,7 @@ export default function FlirtingZonePage() {
     const handleGenerateLine = async () => {
         setIsAdButtonClick(true);
 
+        // ✅ Ad लोड होने का चेक
         if (!isRewardedLoaded) {
             toast({
                 variant: "destructive",
@@ -73,21 +74,31 @@ export default function FlirtingZonePage() {
 
             if (language === 'hi') {
                 try {
-                    // ✅ पुराने fetch को हटाकर मास्टर callAI लगाया (Key अपने आप चली जाएगी)
-                    const data = await callAI("newLine");
+                    // 🚀 BOMB DROP: एक साथ सारी कैटेगरीज़ का डेटा मँगवा रहे हैं!
+                    const data = await callAI("allNewLines");
 
-                    if (data.result && data.result.line) {
-                        setGeneratedLine(data.result.line);
+                    if (data.result) {
+                        // 💾 फोन की मेमोरी (localStorage) में सारा नया डेटा सेव कर दिया
+                        localStorage.setItem("flirt_ai_all_lines", JSON.stringify(data.result));
+                        
+                        // यूज़र को सक्सेस मैसेज दिखा दिया
+                        setGeneratedLine("🔥 मैजिक हो गया! सारी कैटेगरीज़ में 5-5 नई लाइन्स आ गई हैं. नीचे किसी भी कैटेगरी पर क्लिक करके चेक करें!");
+                        
+                        toast({
+                            title: "Success! 🎉",
+                            description: "Sabhi categories naye messages se bhar gayi hain!",
+                        });
                     } else {
-                        toast({ variant: "destructive", title: "Error", description: "Failed to fetch line." });
-                        setGeneratedLine("Couldn't generate a line. Please try again.");
+                        toast({ variant: "destructive", title: "Error", description: "Failed to fetch lines." });
+                        setGeneratedLine("Couldn't generate lines. Please try again.");
                     }
                 } catch (error: any) {
                     console.error("API Call Failed:", error);
                     toast({ variant: "destructive", title: "Network Error", description: error.message || "Please check internet." });
-                    setGeneratedLine("Couldn't generate a line. Please try again.");
+                    setGeneratedLine("Couldn't generate lines. Please try again.");
                 }
             } else {
+                // English fallback
                 const allEnglishLines = [...flirtyLinesEn, ...cuteLinesEn, ...deepLinesEn];
                 const randomLine = allEnglishLines[Math.floor(Math.random() * allEnglishLines.length)];
                 setGeneratedLine(randomLine.line);
@@ -95,6 +106,7 @@ export default function FlirtingZonePage() {
             setIsGenerating(false);
         }
 
+        // ✅ Ad देखने के बाद ही API कॉल होगा
         if (showRewardedAd) {
             showRewardedAd(getNewLine);
         } else {
@@ -112,7 +124,7 @@ export default function FlirtingZonePage() {
                     <CardContent className="flex flex-col gap-4 p-4">
                         <div>
                             <p className="font-semibold">{content.aiGeneratedLine}</p>
-                            <p className="text-muted-foreground min-h-[40px] pt-1">{generatedLine}</p>
+                            <p className="text-muted-foreground min-h-[40px] pt-1 font-medium text-primary">{generatedLine}</p>
                         </div>
                         <div className="flex items-center justify-between">
                             <Button
@@ -126,9 +138,9 @@ export default function FlirtingZonePage() {
                                 ) : (
                                     <RefreshCw className="mr-2" />
                                 )}
-                                {isGenerating || isAdButtonClick ? "Loading..." : content.newLineBtn}
+                                {isGenerating || isAdButtonClick ? "Loading..." : "Refresh All Categories ✨"}
                             </Button>
-                            {generatedLine && !isGenerating && !generatedLine.includes(content.newLinePrompt) && !generatedLine.startsWith("Couldn't") && (
+                            {generatedLine && !isGenerating && !generatedLine.includes(content.newLinePrompt) && !generatedLine.startsWith("Couldn't") && !generatedLine.includes("मैजिक हो गया") && (
                                 <Button variant="ghost" size="sm" onClick={() => handleCopy(generatedLine)}>
                                     <Copy className="mr-2" />
                                     {content.copyLineBtn}
@@ -138,6 +150,7 @@ export default function FlirtingZonePage() {
                     </CardContent>
                 </Card>
 
+                {/* Categories Grid (Baaki code same hai) */}
                 <div className="grid grid-cols-4 gap-4 text-center">
                     <div className="flex flex-col items-center gap-2">
                         <Button variant="outline" size="icon" className="h-16 w-16 rounded-full border-border shadow-md">
