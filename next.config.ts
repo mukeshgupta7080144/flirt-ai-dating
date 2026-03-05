@@ -1,8 +1,12 @@
 import type { NextConfig } from 'next';
 
+// 🧠 SMART CHECK: क्या हम Vercel के सर्वर पर हैं?
+const isVercel = process.env.VERCEL === '1';
+
 const nextConfig: NextConfig = {
-  // ✅ इसे वापस चालू कर दिया गया है! यही Android के लिए सबसे ज़रूरी है।
-  output: 'export', 
+  // ✅ FIX: Vercel पर Backend/API चालू रहेगा, और लैपटॉप पर Android के लिए 'export' होगा!
+  output: isVercel ? undefined : 'export', 
+  
   typescript: {
     ignoreBuildErrors: true,
   },
