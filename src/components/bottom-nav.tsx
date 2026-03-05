@@ -3,8 +3,8 @@
 import React, { useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-// ✅ FIX: Bookmark (Saved) और User (Profile) हटाकर MessageSquare (Comment) आइकॉन जोड़ दिया
-import { Home, Search, MessageSquare, Flame } from 'lucide-react';
+// ✅ FIX: Search हटाकर BookText (Chat Guide) आइकॉन जोड़ दिया
+import { Home, BookText, MessageSquare, Flame } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -16,23 +16,21 @@ export function BottomNav() {
   const { language } = useLanguage();
   const content = useMemo(() => uiTranslations[language], [language]);
 
-  // ✅ FIX: Saved और Profile को हटाकर 'Comment' का नया बटन बना दिया
+  // ✅ FIX: Search को हटाकर 'Chat Guide' का नया बटन एकदम सही लिंक के साथ लगा दिया
   const navItems = useMemo(() => [
     { href: '/', label: content.navHome, icon: Home, key: 'Home' },
-    { href: '/search', label: content.navSearch, icon: Search, key: 'Search' },
+    { href: '/destiny-card', label: "Chat Guide", icon: BookText, key: 'ChatGuide' },
     { href: '/community', label: "Comment", icon: MessageSquare, key: 'Comment' },
     { href: '/flirting-zone', label: content.navFlirting, icon: Flame, key: 'Flirting' },
   ], [content]);
 
+  // 🛑 FIX: Search वाला coming soon ब्लॉक हटा दिया है ताकि Chat Guide बटन दबते ही पेज खुल जाए
   const handleComingSoon = (e: React.MouseEvent<HTMLAnchorElement>, labelKey: string) => {
-    // ✅ FIX: 'Saved' को Error लिस्ट से भी हटा दिया
-    if (['Search'].includes(labelKey)) {
-        e.preventDefault();
-        toast({
-            title: "Coming Soon!",
-            description: `The ${labelKey} page is under construction.`,
-        });
-    }
+    // अगर भविष्य में किसी बटन (जैसे Flirting) को 'Coming Soon' बनाना हो, तो यहाँ लिख सकते हैं
+    // if (['Flirting'].includes(labelKey)) {
+    //     e.preventDefault();
+    //     toast({ title: "Coming Soon!", description: `Under construction.` });
+    // }
   }
 
   return (

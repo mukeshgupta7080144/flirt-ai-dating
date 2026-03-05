@@ -1,8 +1,8 @@
 // src/lib/api-client.ts
 
-// ✅ FIX: यहाँ खाली "" की जगह हमने आपका पक्का Vercel लिंक डाल दिया है। 
-// अब APK हमेशा इंटरनेट वाले असली सर्वर से ही बात करेगा!
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "https://flirt-ai-app.vercel.app";
+// ✅ FIX: यहाँ हमने आपका एकदम असली Vercel लिंक (flirt-ai-dating.vercel.app) डाल दिया है। 
+// अब APK हमेशा आपके अपने इंटरनेट वाले असली सर्वर से ही बात करेगा!
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "https://flirt-ai-dating.vercel.app";
 
 // 🔐 आपका मास्टर पासवर्ड (Backend और Frontend दोनों में सेम होना चाहिए)
 const API_SECRET = "SUPER_SECRET_KEY"; 
