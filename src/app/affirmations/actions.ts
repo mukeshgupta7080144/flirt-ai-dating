@@ -1,6 +1,6 @@
 const API_URL = 'https://flirt-ai-dating.vercel.app';
 // 🔐 चाबी (Password) यहाँ डिफाइन करें
-const API_SECRET = 'SUPER_SECRET_KEY'; 
+const API_SECRET = 'process.env.NEXT_PUBLIC_API_SECRET_KEY'; 
 
 /**
  * Helper function to handle API calls with error checking

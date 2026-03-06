@@ -1,6 +1,6 @@
 const API_URL = 'https://flirt-ai-dating.vercel.app';
 // 🔐 बैकएंड वाला पासवर्ड यहाँ डालें
-const API_SECRET = 'SUPER_SECRET_KEY'; 
+const API_SECRET = 'process.env.NEXT_PUBLIC_API_SECRET_KEY'; 
 
 export async function getNewLineAction(): Promise<{ line?: string; error?: string }> {
   try {

@@ -8,7 +8,7 @@ const CommentSchema = z.object({
 
 const API_URL = 'https://flirt-ai-dating.vercel.app';
 // 🔐 बैकएंड वाला पासवर्ड यहाँ जोड़ें
-const API_SECRET = 'SUPER_SECRET_KEY'; 
+const API_SECRET = 'process.env.NEXT_PUBLIC_API_SECRET_KEY'; 
 
 export async function getCommentAction(data: { photoDescription: string; language: 'hi' | 'en' }): Promise<{ result?: SmartCommentOutput; error?: string | object }> {
 

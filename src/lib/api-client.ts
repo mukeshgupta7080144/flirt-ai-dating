@@ -5,7 +5,7 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "https://flirt-ai-dating.vercel.app";
 
 // 🔐 आपका मास्टर पासवर्ड (Backend और Frontend दोनों में सेम होना चाहिए)
-const API_SECRET = "SUPER_SECRET_KEY"; 
+const API_SECRET = "process.env.NEXT_PUBLIC_API_SECRET_KEY"; 
 
 export async function callAI(flow: string, payload: any = {}) {
   try {

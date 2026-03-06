@@ -17,7 +17,7 @@ const MAX_CONCURRENT_REQUESTS = 15;
 const CACHE_DURATION = 60 * 1000;
 
 /* 🔐 SECRET KEY */
-const API_SECRET = process.env.API_SECRET_KEY || 'SUPER_SECRET_KEY';
+const API_SECRET = process.env.API_SECRET_KEY || 'process.env.NEXT_PUBLIC_API_SECRET_KEY';
 
 const allowedFlows = new Set([
   'comment',
