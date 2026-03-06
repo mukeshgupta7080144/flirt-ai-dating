@@ -1,11 +1,10 @@
 // src/lib/api-client.ts
 
-// ✅ FIX: यहाँ हमने आपका एकदम असली Vercel लिंक (flirt-ai-dating.vercel.app) डाल दिया है। 
-// अब APK हमेशा आपके अपने इंटरनेट वाले असली सर्वर से ही बात करेगा!
+// ✅ FIX: असली Vercel लिंक ताकि APK इंटरनेट से जुड़ सके
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "https://flirt-ai-dating.vercel.app";
 
-// 🔐 आपका मास्टर पासवर्ड (Backend और Frontend दोनों में सेम होना चाहिए)
-const API_SECRET = "process.env.NEXT_PUBLIC_API_SECRET_KEY"; 
+// 🔐 FIX: Quotes हटा दिए गए हैं, अब यह .env या Vercel से असली चाबी उठाएगा!
+const API_SECRET = process.env.NEXT_PUBLIC_API_SECRET_KEY; 
 
 export async function callAI(flow: string, payload: any = {}) {
   try {
@@ -13,23 +12,21 @@ export async function callAI(flow: string, payload: any = {}) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": API_SECRET, // 👈 चाबी यहाँ ऑटोमैटिकली जा रही है
+        "x-api-key": API_SECRET || "", // 👈 अब यहाँ असली SUPER_SECRET_KEY जाएगी
       },
       body: JSON.stringify({ flow, payload }),
     });
 
     const text = await response.text();
     
-    // अगर Vercel से खाली रिस्पॉन्स मिले
     if (!text) {
       throw new Error(`Server Error: No response received (Status: ${response.status})`);
     }
 
-    // ✅ FIX: अगर Vercel गलती से JSON की जगह HTML (<!DOCTYPE) भेज दे, 
-    // तो उसे यहीं पकड़ लो ताकि ऐप में वह गंदा लाल एरर न दिखे!
+    // HTML रिस्पॉन्स चेक (Vercel Errors के लिए)
     if (text.trim().startsWith("<!DOCTYPE") || text.trim().startsWith("<html")) {
-        console.error("Vercel ne JSON ki jagah HTML bhej diya:", text.substring(0, 100));
-        throw new Error("Server par kuchh gadbad hai. API thik se load nahi hui.");
+        console.error("Vercel returned HTML instead of JSON:", text.substring(0, 100));
+        throw new Error("Server Error: API is not responding correctly.");
     }
 
     const data = JSON.parse(text);

@@ -7,7 +7,7 @@ import { generateNewLine } from '@/ai/flows/line-generator';
 import { generateAllNewLines } from '@/ai/flows/all-lines-generator';
 
 /* ================================================= */
-/* CONFIG                         */
+/* CONFIG                                            */
 /* ================================================= */
 
 const RATE_LIMIT_WINDOW = 60 * 1000;
@@ -16,8 +16,8 @@ const MAX_BODY_SIZE = 15_000;
 const MAX_CONCURRENT_REQUESTS = 15;
 const CACHE_DURATION = 60 * 1000;
 
-/* 🔐 SECRET KEY */
-const API_SECRET = process.env.API_SECRET_KEY || 'process.env.NEXT_PUBLIC_API_SECRET_KEY';
+/* 🔐 SECRET KEY - FIX: यहाँ से Quotes हटा दिए गए हैं ताकि यह असली Value उठाए */
+const API_SECRET = process.env.API_SECRET_KEY || process.env.NEXT_PUBLIC_API_SECRET_KEY;
 
 const allowedFlows = new Set([
   'comment',
@@ -29,7 +29,7 @@ const allowedFlows = new Set([
 ]);
 
 /* ================================================= */
-/* MEMORY STORES                     */
+/* MEMORY STORES                                     */
 /* ================================================= */
 
 const ipStore = new Map<string, { count: number; timestamp: number }>();
@@ -37,11 +37,9 @@ const cacheStore = new Map<string, { data: unknown; expiry: number }>();
 const activeRequests = new Map<string, number>();
 
 /* ================================================= */
-/* UTILITIES                       */
+/* UTILITIES                                         */
 /* ================================================= */
 
-// 🛡️ FIX: CORS को पूरी तरह खोल दिया है ताकि Android WebView/Capacitor ब्लॉक न हो। 
-// हमारी असली सिक्योरिटी API KEY (x-api-key) और Rate Limiting है!
 function getCorsHeaders(request: Request) {
   return {
     'Access-Control-Allow-Origin': '*',
@@ -50,7 +48,6 @@ function getCorsHeaders(request: Request) {
   };
 }
 
-// ✅ Unknown IP को "global" बना दिया ताकि रेट लिमिट न टूटे
 function getClientIP(request: Request): string {
   const forwarded = request.headers.get('x-forwarded-for');
   if (forwarded) return forwarded.split(',')[0].trim();
@@ -79,7 +76,6 @@ function rateLimit(ip: string): boolean {
   return false;
 }
 
-// ✅ Cache और IP Store की Memory Leak रोकी गई
 function cleanExpiredCache() {
   const now = Date.now();
   for (const [key, value] of cacheStore.entries()) {
@@ -88,15 +84,8 @@ function cleanExpiredCache() {
     }
   }
   
-  // Memory Leak Prevention (Cache)
-  if (cacheStore.size > 500) {
-    cacheStore.clear();
-  }
-
-  // Memory Leak Prevention (IP Store)
-  if (ipStore.size > 5000) {
-    ipStore.clear();
-  }
+  if (cacheStore.size > 500) cacheStore.clear();
+  if (ipStore.size > 5000) ipStore.clear();
 }
 
 function handleFlowError(error: unknown, corsHeaders: any) {
@@ -105,7 +94,6 @@ function handleFlowError(error: unknown, corsHeaders: any) {
 
   if (error instanceof Error) {
     const msg = error.message.toLowerCase();
-
     if (msg.includes('quota')) {
       errorMessage = "AI busy. Please try again shortly.";
       statusCode = 429;
@@ -117,40 +105,28 @@ function handleFlowError(error: unknown, corsHeaders: any) {
       statusCode = 400;
     }
   }
-
   console.error("AI Flow Error:", error);
   return NextResponse.json({ error: errorMessage }, { status: statusCode, headers: corsHeaders });
 }
 
-/* ================================================= */
-/* OPTIONS HANDLER (CORS Preflight)                  */
-/* ================================================= */
 export async function OPTIONS(request: Request) {
   const corsHeaders = getCorsHeaders(request);
-  return new NextResponse(null, {
-    status: 200,
-    headers: corsHeaders,
-  });
+  return new NextResponse(null, { status: 200, headers: corsHeaders });
 }
-
-/* ================================================= */
-/* POST HANDLER                     */
-/* ================================================= */
 
 export async function POST(request: Request) {
   const corsHeaders = getCorsHeaders(request);
   const ip = getClientIP(request);
 
-  /* 🔐 SECRET KEY CHECK */
+  /* 🔐 SECRET KEY CHECK - पक्का करें कि Client और Server की चाबी मैच हो रही है */
   const clientSecret = request.headers.get('x-api-key');
-  if (clientSecret !== API_SECRET) {
+  if (!clientSecret || clientSecret !== API_SECRET) {
     return NextResponse.json(
       { error: 'Unauthorized request.' },
       { status: 401, headers: corsHeaders }
     );
   }
 
-  /* 1️⃣ Rate Limit */
   if (rateLimit(ip)) {
     return NextResponse.json(
       { error: "Too many requests. Please slow down." },
@@ -158,9 +134,7 @@ export async function POST(request: Request) {
     );
   }
 
-  /* 2️⃣ Concurrency Protection */
   const currentActive = activeRequests.get(ip) ?? 0;
-
   if (currentActive >= MAX_CONCURRENT_REQUESTS) {
     return NextResponse.json(
       { error: "Too many parallel requests." },
@@ -172,115 +146,65 @@ export async function POST(request: Request) {
 
   try {
     cleanExpiredCache();
-
-    /* 3️⃣ Body Size Protection */
     const rawBody = await request.text();
 
     if (rawBody.length > MAX_BODY_SIZE) {
-      return NextResponse.json(
-        { error: "Request too large." },
-        { status: 413, headers: corsHeaders }
-      );
+      return NextResponse.json({ error: "Request too large." }, { status: 413, headers: corsHeaders });
     }
 
-    let body: { flow: string; payload?: any };
-
+    let body;
     try {
       body = JSON.parse(rawBody);
     } catch {
-      return NextResponse.json(
-        { error: "Invalid JSON format." },
-        { status: 400, headers: corsHeaders }
-      );
+      return NextResponse.json({ error: "Invalid JSON format." }, { status: 400, headers: corsHeaders });
     }
 
     const { flow, payload } = body;
-
     if (!flow || !allowedFlows.has(flow)) {
-      return NextResponse.json(
-        { error: "Invalid flow type." },
-        { status: 400, headers: corsHeaders }
-      );
+      return NextResponse.json({ error: "Invalid flow type." }, { status: 400, headers: corsHeaders });
     }
 
-    /* 4️⃣ Cache Check */
     const cacheKey = JSON.stringify({ flow, payload });
     const cached = cacheStore.get(cacheKey);
-
     if (cached && cached.expiry > Date.now()) {
       return NextResponse.json({ result: cached.data }, { headers: corsHeaders });
     }
 
-    let result: unknown;
-
-    /* 5️⃣ Flow Execution */
+    let result;
     switch (flow) {
       case 'comment':
         if (!payload?.photoDescription) {
-          return NextResponse.json(
-            { error: "Missing photo description." },
-            { status: 400, headers: corsHeaders }
-          );
+          return NextResponse.json({ error: "Missing description." }, { status: 400, headers: corsHeaders });
         }
         result = await generateSmartComment(payload);
         break;
-
       case 'reply':
         result = await generateReply(payload);
         break;
-
       case 'story':
         result = await analyzeStory(payload);
         break;
-
       case 'relationship':
         result = await getRelationshipCoachAdvice(payload);
         break;
-
       case 'newLine':
         result = await generateNewLine();
         break;
-
-      case 'allNewLines': {
-        const record = ipStore.get(ip);
-        const currentCount = record?.count ?? 0;
-
-        if (currentCount > 10) {
-          return NextResponse.json(
-            { error: "Heavy request limit reached." },
-            { status: 429, headers: corsHeaders }
-          );
-        }
-
+      case 'allNewLines':
         result = await generateAllNewLines();
         break;
-      }
-
       default:
-        return NextResponse.json(
-          { error: "Unsupported flow." },
-          { status: 400, headers: corsHeaders }
-        );
+        return NextResponse.json({ error: "Unsupported flow." }, { status: 400, headers: corsHeaders });
     }
 
-    /* 6️⃣ Cache Store */
-    cacheStore.set(cacheKey, {
-      data: result,
-      expiry: Date.now() + CACHE_DURATION
-    });
-
+    cacheStore.set(cacheKey, { data: result, expiry: Date.now() + CACHE_DURATION });
     return NextResponse.json({ result }, { headers: corsHeaders });
 
   } catch (error) {
     return handleFlowError(error, corsHeaders);
   } finally {
-    /* 🔥 Always Release Concurrency */
     const current = activeRequests.get(ip) ?? 1;
-
-    if (current <= 1) {
-      activeRequests.delete(ip);
-    } else {
-      activeRequests.set(ip, current - 1);
-    }
+    if (current <= 1) activeRequests.delete(ip);
+    else activeRequests.set(ip, current - 1);
   }
 }
