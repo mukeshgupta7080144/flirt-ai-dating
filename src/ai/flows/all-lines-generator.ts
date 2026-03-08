@@ -46,11 +46,20 @@ export async function generateAllNewLines() {
 
   try {
     const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
+    let responseText = result.response.text();
     
-    // AI के भेजे हुए JSON को ऐप के समझने लायक डेटा में बदलना
-    const parsedData = JSON.parse(responseText);
-    return parsedData;
+    // 🛠️ X-RAY FIX: JSON Cleaner (यह AI के फालतू डिज़ाइन और मार्कडाउन को हटाकर उसे 100% शुद्ध JSON बनाएगा)
+    responseText = responseText.replace(/```json/gi, '').replace(/```/gi, '').trim();
+
+    // 🛡️ Safe Parsing Shield: अगर AI कोई गलती करता है, तो सर्वर 500 Error देकर क्रैश नहीं होगा
+    try {
+        const parsedData = JSON.parse(responseText);
+        return parsedData;
+    } catch (parseError) {
+        // Vercel Logs में देखने के लिए कि AI ने असल में क्या भेजा था
+        console.error("🚨 JSON Parsing Failed! Raw Text was:", responseText);
+        throw new Error("AI ne galat format bheja, please try again.");
+    }
 
   } catch (error) {
     console.error("Master Generator Error:", error);

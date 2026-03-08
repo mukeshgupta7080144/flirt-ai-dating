@@ -15,7 +15,7 @@ import PageHeader from '@/components/page-header';
 import { useAds } from '@/providers/AdProvider';
 import { useLanguage } from '@/hooks/useLanguage';
 import { uiTranslations } from '@/lib/translations';
-// 🔐 मास्टर API क्लाइंट को यहाँ इम्पोर्ट किया
+// 🔐 मास्टर API क्लाइंट
 import { callAI } from '@/lib/api-client';
 
 export default function RomanticLinesPage() {
@@ -78,13 +78,8 @@ export default function RomanticLinesPage() {
     }, [selectedCategory, searchTerm, allCategoriesData, allLines]);
 
     const handleRefreshAllLines = async () => {
-        if (language === 'en') {
-            toast({
-                title: "Feature coming soon!",
-                description: "AI generation for English lines is currently in development.",
-            });
-            return;
-        }
+        // 🔥 FIX: यहाँ से "Feature coming soon!" वाला इंग्लिश ब्लॉक हटा दिया गया है। 
+        // अब इंग्लिश में भी API डायरेक्ट कॉल होगी!
 
         if (!isRewardedLoaded) {
             toast({
@@ -102,7 +97,7 @@ export default function RomanticLinesPage() {
             setIsAdButtonClick(false);
 
             try {
-                // ✅ पुराने fetch को हटाकर मास्टर callAI लगाया (Key अपने आप चली जाएगी)
+                // ✅ मास्टर callAI का इस्तेमाल
                 const data = await callAI("allNewLines");
 
                 if (data.result) {
