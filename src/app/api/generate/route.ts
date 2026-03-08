@@ -11,7 +11,7 @@ import { generateAllNewLines } from "@/ai/flows/all-lines-generator";
 /* ================================================= */
 
 const RATE_LIMIT_WINDOW = 60 * 1000;
-const MAX_REQUESTS_PER_IP = 20;
+const MAX_REQUESTS_PER_IP = 60; // 👈 Limit badha kar 60 kar di gayi hai
 const MAX_BODY_SIZE = 30_000;
 const MAX_CONCURRENT_REQUESTS = 15;
 const CACHE_DURATION = 60 * 1000;
