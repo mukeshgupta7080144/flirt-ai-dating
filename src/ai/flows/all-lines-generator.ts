@@ -11,11 +11,10 @@ const genAI = new GoogleGenerativeAI(apiKey);
 
 export async function generateAllNewLines() {
 
-  const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash-latest",
-    generationConfig: {
-      responseMimeType: "application/json"
-    }
+  const model = genAI.getGenerativeModel({ 
+      // 🔥 FIX: 'flash' को हटाकर 'pro' कर दिया (जो हमेशा काम करता है)
+      model: "gemini-1.5-pro", 
+      generationConfig: { responseMimeType: "application/json" }
   });
 
   const prompt = `
