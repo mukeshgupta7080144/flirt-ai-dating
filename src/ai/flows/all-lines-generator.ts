@@ -2,6 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // 🔐 Google Gemini API Key
 const apiKey = process.env.GEMINI_API_KEY;
+
 if (!apiKey) {
   throw new Error("GEMINI_API_KEY is missing in environment variables.");
 }
@@ -9,60 +10,80 @@ if (!apiKey) {
 const genAI = new GoogleGenerativeAI(apiKey);
 
 export async function generateAllNewLines() {
-  // 🧠 Gemini 1.5 Flash - तेज़ और स्मार्ट मॉडल
-  const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash",
-      // 🔥 FIX: AI को सख्त आदेश कि सिर्फ JSON ही भेजना, फालतू बातें नहीं!
-      generationConfig: { responseMimeType: "application/json" }
+
+  const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-flash-latest",
+    generationConfig: {
+      responseMimeType: "application/json"
+    }
   });
 
-  // 👑 The Master Prompt (AI को हमारा हुक्म)
   const prompt = `
-  You are an expert Indian dating coach and a Gen-Z relationship guru. 
-  Your task is to generate fresh, unique, and highly engaging Hinglish (Hindi + English) flirting lines for 5 different categories.
+You are an expert Indian dating coach and a Gen-Z relationship guru.
 
-  Generate EXACTLY 5 highly impressive items for EACH category.
-  The language must be natural, trendy, and emotional, using emojis where appropriate.
+Generate EXACTLY 5 items for EACH category.
 
-  Return ONLY a valid JSON object with this EXACT structure (No markdown, no extra text):
-  {
-    "questions": [ 
-      { "line": "Deep or bold Hinglish question to ask a crush.", "usageTip": "Kab use karein (e.g., Night chat me)" } 
-    ],
-    "funnyFlirts": [ 
-      { "line": "Hilarious and witty Hinglish pickup line.", "usageTip": "Hasane ke liye" } 
-    ],
-    "anokhiNight": [ 
-      { "line": "Late night deep, romantic, or slight naughty (but safe) line.", "usageTip": "Raat ko 12 baje ke baad" } 
-    ],
-    "damageControl": [ 
-      { "line": "Sweet apology or making-up line after a fight.", "usageTip": "Gussa shant karne ke liye" } 
-    ],
-    "vibeCheck": [ 
-      { "line": "Playful teasing or casual vibe check line.", "usageTip": "Conversation start karne ke liye" } 
-    ]
-  }
-  `;
+Language: Hinglish (Hindi + English mix).
+Tone: trendy, emotional, Gen-Z friendly.
+Use emojis where appropriate.
+
+Return ONLY valid JSON with this structure:
+
+{
+  "questions": [
+    { "line": "Deep or bold Hinglish question to ask a crush.", "usageTip": "Kab use karein" }
+  ],
+  "funnyFlirts": [
+    { "line": "Funny Hinglish pickup line.", "usageTip": "Hasane ke liye" }
+  ],
+  "anokhiNight": [
+    { "line": "Late night romantic or deep line.", "usageTip": "Raat ko use karein" }
+  ],
+  "damageControl": [
+    { "line": "Sweet apology line.", "usageTip": "Gussa shant karne ke liye" }
+  ],
+  "vibeCheck": [
+    { "line": "Playful teasing line.", "usageTip": "Conversation start karne ke liye" }
+  ]
+}
+`;
 
   try {
-    const result = await model.generateContent(prompt);
-    let responseText = result.response.text();
-    
-    // 🛠️ X-RAY FIX: JSON Cleaner (यह AI के फालतू डिज़ाइन और मार्कडाउन को हटाकर उसे 100% शुद्ध JSON बनाएगा)
-    responseText = responseText.replace(/```json/gi, '').replace(/```/gi, '').trim();
 
-    // 🛡️ Safe Parsing Shield: अगर AI कोई गलती करता है, तो सर्वर 500 Error देकर क्रैश नहीं होगा
-    try {
-        const parsedData = JSON.parse(responseText);
-        return parsedData;
-    } catch (parseError) {
-        // Vercel Logs में देखने के लिए कि AI ने असल में क्या भेजा था
-        console.error("🚨 JSON Parsing Failed! Raw Text was:", responseText);
-        throw new Error("AI ne galat format bheja, please try again.");
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+
+    let responseText = response.text();
+
+    if (!responseText) {
+      throw new Error("AI returned empty response.");
     }
 
+    // 🔧 Remove markdown formatting
+    responseText = responseText
+      .replace(/```json/gi, "")
+      .replace(/```/gi, "")
+      .trim();
+
+    // 🔧 Extract JSON safely
+    const jsonStart = responseText.indexOf("{");
+    const jsonEnd = responseText.lastIndexOf("}");
+
+    if (jsonStart === -1 || jsonEnd === -1) {
+      console.error("Invalid AI response:", responseText);
+      throw new Error("AI response format invalid.");
+    }
+
+    const jsonString = responseText.substring(jsonStart, jsonEnd + 1);
+
+    const parsedData = JSON.parse(jsonString);
+
+    return parsedData;
+
   } catch (error) {
-    console.error("Master Generator Error:", error);
+
+    console.error("🚨 Master Generator Error:", error);
+
     throw new Error("Failed to generate all categories bundle.");
   }
 }
