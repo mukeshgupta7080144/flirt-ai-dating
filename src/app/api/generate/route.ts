@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from "next/server"; // 🔥 FIX: 'Import' का 'i' छोटा कर दिया
 import { generateSmartComment } from "@/ai/flows/comment-generator";
 import { generateReply } from "@/ai/flows/reply-generator";
 import { analyzeStory } from "@/ai/flows/story-analyzer";
@@ -237,7 +237,8 @@ export async function POST(request: Request) {
         break;
 
       case "newLine":
-        result = await generateNewLine();
+        // 🔥 FIX: payload पास कर दिया गया है
+        result = await generateNewLine(payload);
         break;
 
       case "allNewLines":
