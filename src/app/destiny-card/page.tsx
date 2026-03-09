@@ -64,9 +64,16 @@ export default function ChatGuidePage() {
     const [conversationStarter, setConversationStarter] = useState<string | null>(null);
     const [isStarterLoading, setIsStarterLoading] = useState(false);
     
-    // ✅ FIX: शुरुआत में 0 क्रेडिट कर दिए हैं ताकि बिना ऐड देखे कोई चैट न कर सके
     const [messageCredit, setMessageCredit] = useState(0); 
     const [isAdButtonClick, setIsAdButtonClick] = useState(false);
+
+    // ✅ FIX: पेज लोड होते ही फोन की मेमोरी (localStorage) से चेक करें कि क्या क्रेडिट बचे हैं
+    useEffect(() => {
+      const savedCredits = localStorage.getItem('chat_guide_credits');
+      if (savedCredits) {
+        setMessageCredit(parseInt(savedCredits, 10));
+      }
+    }, []);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -90,7 +97,7 @@ export default function ChatGuidePage() {
         }
     };
 
-    // 🎁 ADD: ऐड देखने पर 10 मैसेज देने वाला लॉजिक
+    // 🎁 ADD: ऐड देखने पर 10 मैसेज देने वाला लॉजिक + LocalStorage में सेव करना
     const handleWatchAd = () => {
         setIsAdButtonClick(true);
         if (!isRewardedLoaded) {
@@ -100,7 +107,8 @@ export default function ChatGuidePage() {
         }
         
         showRewardedAd(() => {
-            setMessageCredit(10); // ✅ 10 नए चैट क्रेडिट्स दे दिए
+            setMessageCredit(10); 
+            localStorage.setItem('chat_guide_credits', '10'); // ✅ क्रेडिट्स सेव कर दिए
             setIsAdButtonClick(false);
             toast({ title: "Unlocked! 🎉", description: "You got 10 free messages. Chat shuru karein!" });
         });
@@ -117,7 +125,12 @@ export default function ChatGuidePage() {
 
         const userMessage: Message = { id: Date.now(), role: 'user', content: lastMessage };
         setMessages((prev) => [...prev, userMessage]);
-        setMessageCredit((prev) => prev - 1); // 1 क्रेडिट काट लिया
+        
+        // ✅ 1 क्रेडिट काट लिया और localStorage में भी अपडेट कर दिया
+        const newCredit = messageCredit - 1;
+        setMessageCredit(newCredit);
+        localStorage.setItem('chat_guide_credits', newCredit.toString());
+        
         setIsLoading(true);
         form.reset();
 
@@ -135,7 +148,13 @@ export default function ChatGuidePage() {
         } catch (error: any) {
             toast({ variant: 'destructive', title: 'Error', description: error.message || "Failed to get reply" });
             setMessages((prev) => prev.filter(m => m.id !== userMessage.id));
-            setMessageCredit((prev) => prev + 1); // फेल होने पर क्रेडिट वापस कर दिया
+            
+            // ✅ फेल होने पर क्रेडिट वापस कर दिया और localStorage में भी सेव कर दिया
+            setMessageCredit(prev => {
+                const restoredCredit = prev + 1;
+                localStorage.setItem('chat_guide_credits', restoredCredit.toString());
+                return restoredCredit;
+            });
         } finally {
             setIsLoading(false);
         }

@@ -72,18 +72,25 @@ export default function RelationshipChatPage() {
   const { language } = useLanguage();
   const content = useMemo(() => uiTranslations[language], [language]);
 
-  // ✅ FIX: शुरुआत में 0 क्रेडिट कर दिए हैं ताकि बिना ऐड देखे कोई चैट न कर सके
   const [messageCredit, setMessageCredit] = useState(0); 
   const [isClickLoading, setIsClickLoading] = useState(false);
   
   const { toast } = useToast();
   const { showRewardedAd, isRewardedLoaded } = useAds();
 
+  // ✅ FIX: पेज लोड होते ही फोन की मेमोरी (localStorage) से चेक करें कि क्या क्रेडिट बचे हैं
+  useEffect(() => {
+    const savedCredits = localStorage.getItem('relationship_chat_credits');
+    if (savedCredits) {
+      setMessageCredit(parseInt(savedCredits, 10));
+    }
+  }, []);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
-  // 🎁 ADD: ऐड देखने पर 5 मैसेज देने वाला लॉजिक
+  // 🎁 ADD: ऐड देखने पर 5 मैसेज देने वाला लॉजिक + LocalStorage में सेव करना
   const handleWatchAd = () => {
     setIsClickLoading(true);
     
@@ -98,7 +105,8 @@ export default function RelationshipChatPage() {
     }
 
     showRewardedAd(() => {
-        setMessageCredit(5); // ✅ 5 नए चैट क्रेडिट्स दे दिए
+        setMessageCredit(5); 
+        localStorage.setItem('relationship_chat_credits', '5'); // ✅ क्रेडिट्स सेव कर दिए
         setIsClickLoading(false);
         toast({ 
             title: "Unlocked! 🎉", 
@@ -118,7 +126,12 @@ export default function RelationshipChatPage() {
 
     const userMessage: Message = { id: Date.now(), role: "user", content: input };
     setMessages((prev) => [...prev, userMessage]);
-    setMessageCredit(prev => prev - 1); // 1 क्रेडिट काट लिया
+    
+    // ✅ 1 क्रेडिट काट लिया और localStorage में भी अपडेट कर दिया
+    const newCredit = messageCredit - 1;
+    setMessageCredit(newCredit); 
+    localStorage.setItem('relationship_chat_credits', newCredit.toString());
+    
     setIsLoading(true);
     const currentInput = input;
     setInput("");
@@ -137,7 +150,13 @@ export default function RelationshipChatPage() {
     } catch (err: any) {
         toast({ variant: "destructive", title: "Error", description: err.message || "Network Error" });
         setMessages((prev) => prev.filter(m => m.id !== userMessage.id));
-        setMessageCredit(prev => prev + 1); // फेल होने पर क्रेडिट वापस कर दिया
+        
+        // ✅ फेल होने पर क्रेडिट वापस कर दिया और localStorage में भी सेव कर दिया
+        setMessageCredit(prev => {
+            const restoredCredit = prev + 1;
+            localStorage.setItem('relationship_chat_credits', restoredCredit.toString());
+            return restoredCredit;
+        }); 
     } finally {
         setIsLoading(false);
     }

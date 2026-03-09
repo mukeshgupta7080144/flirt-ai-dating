@@ -28,22 +28,25 @@ export const useAdMob = () => {
   const isRewardShowing = useRef(false);
   const interstitialDismissQueue = useRef<(() => void)[]>([]);
 
+  // ✅ FIX 1: बैनर के स्टेटस को ट्रैक करने के लिए (लाल एरर रोकने के लिए)
+  const isBannerShowing = useRef(false);
+
   const [isInterstitialLoaded, setInterstitialLoaded] = useState(false);
   const [isInterstitialLoading, setInterstitialLoading] = useState(false);
   const [isRewardedLoaded, setRewardedLoaded] = useState(false);
   const [isRewardedLoading, setRewardedLoading] = useState(false);
 
-  const syncInterstitialState = (loaded: boolean, loading: boolean) => {
+  const syncInterstitialState = useCallback((loaded: boolean, loading: boolean) => {
     interstitialState.current = { loaded, loading };
     setInterstitialLoaded(loaded);
     setInterstitialLoading(loading);
-  };
+  }, []);
 
-  const syncRewardedState = (loaded: boolean, loading: boolean) => {
+  const syncRewardedState = useCallback((loaded: boolean, loading: boolean) => {
     rewardedState.current = { loaded, loading };
     setRewardedLoaded(loaded);
     setRewardedLoading(loading);
-  };
+  }, []);
 
   /* ================= INTERSTITIAL ================= */
 
@@ -64,7 +67,7 @@ export const useAdMob = () => {
       console.error('Interstitial preload error:', err);
       syncInterstitialState(false, false);
     }
-  }, [isAndroid]);
+  }, [isAndroid, syncInterstitialState]);
 
   const showInterstitialAd = useCallback(
     async (onDismiss?: () => void) => {
@@ -113,7 +116,7 @@ export const useAdMob = () => {
       console.error('Rewarded preload error:', err);
       syncRewardedState(false, false);
     }
-  }, [isAndroid]);
+  }, [isAndroid, syncRewardedState]);
 
   const showRewardedAd = useCallback(
     async (onReward: () => void) => {
@@ -144,8 +147,9 @@ export const useAdMob = () => {
 
   /* ================= BANNER ================= */
 
-  const showBanner = async () => {
+  const showBanner = useCallback(async () => {
     if (!isAndroid) return;
+    if (isBannerShowing.current) return; // अगर पहले से दिख रहा है, तो दोबारा कॉल मत करो
 
     try {
       await AdMob.showBanner({
@@ -155,119 +159,145 @@ export const useAdMob = () => {
         margin: 0,
         isTesting: false,
       });
+      // ✅ FIX 1: बैनर दिख गया, इसे true कर दो
+      isBannerShowing.current = true; 
     } catch (err) {
       console.error('Banner show error:', err);
     }
-  };
+  }, [isAndroid]);
 
-  const hideBanner = async () => {
+  const hideBanner = useCallback(async () => {
     if (!isAndroid) return;
+    
+    // ✅ FIX 1: अगर बैनर दिख ही नहीं रहा है, तो छुपाने की कोशिश मत करो (यहीं से वापस लौट जाओ)
+    if (!isBannerShowing.current) return; 
 
     try {
       await AdMob.hideBanner();
       await AdMob.removeBanner();
+      // ✅ FIX 1: बैनर हट गया, इसे false कर दो
+      isBannerShowing.current = false; 
     } catch (err) {
       console.error('Banner hide error:', err);
     }
-  };
+  }, [isAndroid]);
 
   /* ================= INIT ================= */
 
   useEffect(() => {
-    if (!isAndroid || isInitialized.current) return;
+    if (!isAndroid) return;
 
     isMounted.current = true;
 
     const init = async () => {
+      // ✅ FIX 2: डुप्लीकेट Listeners को रोकने के लिए चेक
+      if (isInitialized.current) return;
+
       try {
         await AdMob.initialize({});
         isInitialized.current = true;
 
         /* ----- INTERSTITIAL EVENTS ----- */
 
-        listeners.current.push(
-          await AdMob.addListener(InterstitialAdPluginEvents.Loaded, () => {
-            if (!isMounted.current) return;
-            syncInterstitialState(true, false);
-          }),
+        const interstitialLoad = await AdMob.addListener(InterstitialAdPluginEvents.Loaded, () => {
+          if (!isMounted.current) return;
+          syncInterstitialState(true, false);
+        });
 
-          await AdMob.addListener(InterstitialAdPluginEvents.FailedToLoad, () => {
-            if (!isMounted.current) return;
-            syncInterstitialState(false, false);
-          }),
+        const interstitialFailed = await AdMob.addListener(InterstitialAdPluginEvents.FailedToLoad, () => {
+          if (!isMounted.current) return;
+          syncInterstitialState(false, false);
+        });
 
-          await AdMob.addListener(InterstitialAdPluginEvents.Dismissed, () => {
-            if (!isMounted.current) return;
+        const interstitialDismissed = await AdMob.addListener(InterstitialAdPluginEvents.Dismissed, () => {
+          if (!isMounted.current) return;
 
-            syncInterstitialState(false, false);
+          syncInterstitialState(false, false);
 
-            const cb = interstitialDismissQueue.current.shift();
-            try {
-              cb?.();
-            } catch (e) {
-              console.error('Dismiss callback error:', e);
-            }
+          const cb = interstitialDismissQueue.current.shift();
+          try {
+            cb?.();
+          } catch (e) {
+            console.error('Dismiss callback error:', e);
+          }
 
-            setTimeout(() => {
-              if (isMounted.current) preloadInterstitial();
-            }, 1000);
-          })
-        );
+          setTimeout(() => {
+            if (isMounted.current) preloadInterstitial();
+          }, 1000);
+        });
 
         /* ----- REWARDED EVENTS ----- */
 
-        listeners.current.push(
-          await AdMob.addListener(RewardAdPluginEvents.Loaded, () => {
-            if (!isMounted.current) return;
-            syncRewardedState(true, false);
-          }),
+        const rewardedLoad = await AdMob.addListener(RewardAdPluginEvents.Loaded, () => {
+          if (!isMounted.current) return;
+          syncRewardedState(true, false);
+        });
 
-          await AdMob.addListener(RewardAdPluginEvents.FailedToLoad, () => {
-            if (!isMounted.current) return;
-            syncRewardedState(false, false);
-          }),
+        const rewardedFailed = await AdMob.addListener(RewardAdPluginEvents.FailedToLoad, () => {
+          if (!isMounted.current) return;
+          syncRewardedState(false, false);
+        });
 
-          await AdMob.addListener(RewardAdPluginEvents.Rewarded, () => {
-            if (isRewardShowing.current && rewardCallback.current) {
-              try {
-                rewardCallback.current();
-              } catch (e) {
-                console.error('Reward callback error:', e);
-              }
-              rewardCallback.current = null;
+        const rewardedEarned = await AdMob.addListener(RewardAdPluginEvents.Rewarded, () => {
+          if (isRewardShowing.current && rewardCallback.current) {
+            try {
+              rewardCallback.current();
+            } catch (e) {
+              console.error('Reward callback error:', e);
             }
-          }),
-
-          await AdMob.addListener(RewardAdPluginEvents.Dismissed, () => {
-            if (!isMounted.current) return;
-
-            syncRewardedState(false, false);
-
             rewardCallback.current = null;
-            isRewardShowing.current = false;
+          }
+        });
 
-            setTimeout(() => {
-              if (isMounted.current) preloadRewardedAd();
-            }, 1000);
-          })
-        );
+        const rewardedDismissed = await AdMob.addListener(RewardAdPluginEvents.Dismissed, () => {
+          if (!isMounted.current) return;
+
+          syncRewardedState(false, false);
+          rewardCallback.current = null;
+          isRewardShowing.current = false;
+
+          setTimeout(() => {
+            if (isMounted.current) preloadRewardedAd();
+          }, 1000);
+        });
+
+        // ✅ FIX 2: सारे Listeners को एक Array में सेव कर लिया ताकि बाद में क्लिनअप कर सकें
+        listeners.current = [
+          interstitialLoad,
+          interstitialFailed,
+          interstitialDismissed,
+          rewardedLoad,
+          rewardedFailed,
+          rewardedEarned,
+          rewardedDismissed
+        ];
 
         preloadInterstitial();
         preloadRewardedAd();
       } catch (err) {
         console.error('AdMob init error:', err);
+        isInitialized.current = false; // अगर एरर आया, तो रीसेट कर दो
       }
     };
 
     init();
 
+    // ✅ FIX 2: पक्का क्लिनअप (Cleanup) ताकि मेमोरी लीक न हो
     return () => {
       isMounted.current = false;
       isInitialized.current = false;
-      listeners.current.forEach((l) => l.remove());
+      
+      // पुराने सारे इवेंट्स को डिलीट कर दो
+      listeners.current.forEach(async (listener) => {
+        try {
+           await listener.remove();
+        } catch(e) {
+           console.error("Failed to remove listener", e);
+        }
+      });
       listeners.current = [];
     };
-  }, [isAndroid, preloadInterstitial, preloadRewardedAd]);
+  }, [isAndroid, preloadInterstitial, preloadRewardedAd, syncInterstitialState, syncRewardedState]);
 
   return {
     showInterstitialAd,

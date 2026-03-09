@@ -1,56 +1,54 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
-// 1. Frontend के हिसाब से एकदम सही JSON Schema
+// 1. Frontend Buttons के हिसाब से एकदम सही Schema (Matches 1000135946.jpg)
 const LineItemSchema = z.object({
   line: z.string().describe('A romantic, cute, or flirty line with emojis.'),
   usageTip: z.string().describe('Tip on when to use this line.')
 });
 
 const AllNewLinesSchema = z.object({
-  cute: z.array(LineItemSchema).describe('5 Cute flirting lines'),
-  deep: z.array(LineItemSchema).describe('5 Deep and poetic lines'),
-  flirty: z.array(LineItemSchema).describe('5 Cheeky and flirty lines'),
-  shayari: z.array(LineItemSchema).describe('5 Romantic Shayari/Poetic lines')
+  questions: z.array(LineItemSchema).describe('5 Deep or bold questions for crush'),
+  funnyFlirts: z.array(LineItemSchema).describe('5 Witty and funny pickup lines'),
+  anokhiNight: z.array(LineItemSchema).describe('5 Late night deep/romantic lines'),
+  damageControl: z.array(LineItemSchema).describe('5 Sweet apology/reconciliation lines')
 });
 
-// 🔥 FIX: Input Schema for Language (भाषा पहचानने के लिए)
+// 🔥 Input Schema for Language
 const AllNewLinesInputSchema = z.object({
   language: z.enum(['hi', 'en']).optional().default('hi')
 });
 export type AllNewLinesInput = z.infer<typeof AllNewLinesInputSchema>;
 
 // 🧠 HINDI BRAIN (देसी, स्मार्ट और नैचुरल वाइब)
-const hindiSystemPrompt = `Role: You are an elite Indian dating coach and a high-EQ relationship guru for Manifest Pro. 
-Your task is to generate fresh, unique, and highly engaging Hinglish (Hindi + English) flirting lines for 4 categories: Cute, Deep, Flirty, and Shayari.
+const hindiSystemPrompt = `Role: You are an elite Indian dating coach for Manifest Pro. 
+Your task is to generate fresh, unique, and highly engaging Hinglish (Hindi + English) flirting lines for 4 categories: Questions, Funny Flirts, Anokhi Night, and Damage Control.
   
 🔥 STRICT GUIDELINES (NO ROBOTIC LINES):
-- NO OUTDATED JOKES: Strictly ban old, cheesy lines (like "Chand ka tukda", "Aapki saadgi"). 
-- SOUND LIKE A HUMAN: Talk like a charismatic, attractive, and smooth person. Use highly relatable Gen-Z context (Netflix, Zomato, late-night overthinking, aesthetic vibes).
-- VIBE BREAKDOWN:
-  1. Cute: Heart-melting, sweet, and genuine.
-  2. Deep: Emotional, late-night deep talks, poetic but modern.
-  3. Flirty: Cheeky, bold, teasing, and playful (Keep it classy, bypass adult filters).
-  4. Shayari: Modern 2-liner Hinglish poetry (Not 1990s ghazals, make it sound like relatable Instagram poetry).
-- Use 1-2 aesthetic emojis (✨🦋, 🤌, ❤️‍🔥, 🧿).
-  
-CRITICAL RULE: You MUST return ONLY a raw JSON object matching the exact schema. DO NOT wrap the JSON in \`\`\`json ... \`\`\` markdown blocks.`;
+- NO OUTDATED JOKES: Strictly ban old, cheesy lines (like "Aapki saadgi", "Chand ka tukda"). 
+- SOUND LIKE A HUMAN: Use highly relatable Gen-Z context (Zomato, Netflix, aesthetic vibes).
+- TONE BREAKDOWN:
+  1. Questions: Deep or bold questions to spark interest.
+  2. Funny Flirts: Witty, playful, and funny pickup lines.
+  3. Anokhi Night: Romantic and deep lines for late-night chats.
+  4. Damage Control: Sweet, heart-melting apologies or makeup lines.
+- Use 1-2 aesthetic emojis (✨🦋, ❤️‍🔥, 🧿).
+CRITICAL RULE: Return ONLY a raw JSON object. NO markdown blocks.`;
 
 // 🧠 ENGLISH BRAIN (वेस्टर्न, रिज़ और मॉडर्न वाइब)
-const englishSystemPrompt = `Role: You are an elite Western dating coach and a charismatic relationship guru for Manifest Pro. 
-Your task is to generate fresh, unique, and highly engaging English flirting lines for 4 categories: Cute, Deep, Flirty, and Shayari (Deep/Poetic Romance).
+const englishSystemPrompt = `Role: You are an elite Western dating coach for Manifest Pro. 
+Your task is to generate fresh, unique, and highly engaging English flirting lines for: Questions, Funny Flirts, Anokhi Night, and Damage Control.
   
 🔥 STRICT GUIDELINES (NO NPC/ROBOTIC LINES):
-- NO CLICHÉS: Strictly ban outdated pickup lines (e.g., "Did it hurt when you fell from heaven?").
-- SOUND LIKE A HUMAN: Talk like a confident, high-value individual with natural "rizz". Keep it smooth, modern, and effortless.
-- VIBE BREAKDOWN:
-  1. Cute: Sweet, genuine, and naturally endearing.
-  2. Deep: Emotional, raw, midnight-thoughts kind of deep.
-  3. Flirty: Witty banter, confident, slightly teasing, and cheeky (Keep it classy).
-  4. Shayari/Poetic: Beautiful, modern poetic quotes or deep romantic thoughts.
-- Use 1-2 aesthetic emojis (✨🦋, 👀, ❤️‍🔥, 🤌).
-  
-CRITICAL RULE: You MUST return ONLY a raw JSON object matching the exact schema. DO NOT wrap the JSON in \`\`\`json ... \`\`\` markdown blocks.`;
+- NO CLICHÉS: Strictly ban outdated pickup lines. Use modern slang (rizz, vibe, smooth).
+- SOUND LIKE A HUMAN: Talk like a confident, high-value individual.
+- TONE BREAKDOWN:
+  1. Questions: Intriguing and bold conversation starters.
+  2. Funny Flirts: Clever banter and witty pickup lines.
+  3. Anokhi Night: Deep, intimate, and romantic late-night thoughts.
+  4. Damage Control: Sincere, smooth, and empathetic de-escalation lines.
+- Use 1-2 aesthetic emojis (✨🦋, ❤️‍🔥).
+CRITICAL RULE: Return ONLY a raw JSON object. NO markdown blocks.`;
 
 // 2. Genkit Master Prompt
 const masterLinesPrompt = ai.definePrompt({
@@ -62,7 +60,7 @@ const masterLinesPrompt = ai.definePrompt({
   },
   output: { schema: AllNewLinesSchema },
   system: `{{{systemInstructions}}}`,
-  prompt: `Generate exactly 5 fresh, unique, and non-robotic lines for all 4 categories now. Return ONLY valid JSON.`,
+  prompt: `Generate exactly 5 fresh, unique, and non-robotic items for ALL 4 categories now. Return ONLY valid JSON.`,
   config: {
     temperature: 0.9,
   },
@@ -70,11 +68,9 @@ const masterLinesPrompt = ai.definePrompt({
 
 // 3. Main Generator Flow
 export async function generateAllNewLines(input?: AllNewLinesInput) {
-  // भाषा चेक कर रहे हैं (डिफ़ॉल्ट 'hi' है)
   const userLang = input?.language || 'hi';
   
   try {
-    // 🔥 जादुई लाइन: जो यूज़र की भाषा चेक करके सही प्रॉम्प्ट लगाएगी
     const systemPromptText = userLang === 'en' ? englishSystemPrompt : hindiSystemPrompt;
     
     const { output } = await masterLinesPrompt({
@@ -90,20 +86,20 @@ export async function generateAllNewLines(input?: AllNewLinesInput) {
   } catch (error) {
     console.error("🚨 Master Generator Error:", error);
     
-    // 🛡️ Safe Shield: अब डमी लाइन्स भी यूज़र की भाषा में दिखेंगी!
+    // 🛡️ Fallback labels matched exactly to your UI categories
     if (userLang === 'en') {
         return {
-          cute: [{ line: "Looks like AI is tired, try again in a bit 🥺✨", usageTip: "Error occurred" }],
-          deep: [{ line: "Good things take time, have some patience ❤️", usageTip: "System busy" }],
-          flirty: [{ line: "AI is playing hard to get today 😉", usageTip: "Server load" }],
-          shayari: [{ line: "AI lost its words, give it a moment...", usageTip: "Wait a moment" }]
+          questions: [{ line: "Is it just me, or did the vibe just get more interesting? 👀", usageTip: "When the chat gets good" }],
+          funnyFlirts: [{ line: "My AI server is down, but my interest in you is up. 😉", usageTip: "Playful recovery" }],
+          anokhiNight: [{ line: "Midnight thoughts always lead back to you. ✨", usageTip: "Late night vibe" }],
+          damageControl: [{ line: "I overstepped, but I'd love to make it up to you. 🥺❤️", usageTip: "Smoothing things over" }]
         };
     } else {
         return {
-          cute: [{ line: "Lagta hai AI thak gaya hai, thodi der baad try karo 🥺✨", usageTip: "Error aa gaya" }],
-          deep: [{ line: "Waqt lag raha hai, par sabr ka fal meetha hota hai ❤️", usageTip: "System busy" }],
-          flirty: [{ line: "AI bhi tumhari tarah nakhre dikha raha hai aaj 😉", usageTip: "Server load" }],
-          shayari: [{ line: "Khata ho gayi AI se, thoda waqt de do usko...", usageTip: "Wait a moment" }]
+          questions: [{ line: "Suno, tumhara favorite 'late night' topic kya hai? 👀✨", usageTip: "Chat deep karne ke liye" }],
+          funnyFlirts: [{ line: "Lagta hai AI thak gaya, par meri baatein nahi. 😉", usageTip: "Mazaak mein kaho" }],
+          anokhiNight: [{ line: "Raat lambi hai, aur tumhare khayal usse bhi zyada. ❤️", usageTip: "Raat ki chat" }],
+          damageControl: [{ line: "Galti ho gayi, ab gussa thook bhi do... 🥺🌹", usageTip: "Gussa shant karne ke liye" }]
         };
     }
   }
