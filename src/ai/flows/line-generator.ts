@@ -55,7 +55,7 @@ const prompt = ai.definePrompt({
 The line must be visually attractive and include a unique emoji combo.
 Return ONLY valid JSON matching the schema. No markdown blocks.`,
   config: {
-    temperature: 0.9,
+    temperature: 1.2,
   },
 });
 
