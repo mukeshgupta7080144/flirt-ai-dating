@@ -13,6 +13,7 @@ import {
   BrainCircuit,
   MessageSquare,
   Text,
+  ShieldCheck, // 🔥 Privacy Policy ke liye naya icon add kiya
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -113,9 +114,23 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
             ))}
           </SidebarMenu>
         </SidebarContent>
-        {/* 4. Go Premium बटन यहाँ से डिलीट कर दिया है */}
+        {/* 🔥 Privacy Policy Link Yahan Footer Mein Add Kar Diya Hai */}
         <SidebarFooter className="p-4">
            <Separator className="mb-4" />
+           <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild>
+                <a 
+                  href="https://sites.google.com/view/flirt-ai-privacy-2026/home" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                >
+                  <ShieldCheck />
+                  <span>Privacy Policy</span>
+                </a>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
